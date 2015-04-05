@@ -1,0 +1,46 @@
+body {
+  padding-top: 50px;
+}
+.pepacat-template {
+  /* padding: 40px 15px; */
+  padding: 0px 0px 0px 0px;
+  margin: 0px 0px 0px 0px;
+  text-align: center;
+}
+
+.unfold {
+  position: absolute;
+  left:40%;
+  top:20px;
+}
+
+.tool {
+  position: absolute;
+  top:20px;
+}
+
+.tool-u {
+  top:120px;
+}
+
+.tool-uu {
+  top:220px;
+}
+
+.tool-uuu {
+  top:320px;
+}
+
+.tool-undo {
+  position: absolute;
+  bottom:100px;
+  right:80px;
+}
+
+.tool-redo {
+  position: absolute;
+  bottom:100px;
+  right:0px;
+}
+
+

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="favicon.ico">
+
+    <title>Pepacat</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="css/custom.css" rel="stylesheet">
+
+    <script src="js/jquery.min.js"></script>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+
+    <!-- threeD window -->
+    <script src="js/three/three.js"></script>
+    <script src="js/three/loaders/STLLoader.js"></script>
+    <script src="js/three/Detector.js"></script>
+    <script src="js/three/renderers/Projector.js"></script>
+    <script src="js/three/libs/stats.min.js"></script>
+
+    <script src="js/threeD.js"></script>
+    <script src="js/pepacat_lib.js"></script>
+
+
+    <script>
+
+    var g_pepacat_model = {
+
+      // array of arrays
+      //
+      vert3d : [],
+      vert2d : [],
+
+      // three.js triangle meshes
+      //
+      tri_mesh : [],
+
+      // Array of arrays pointing to all triangles
+      // vertices appear in.  Indices.
+      //
+      vert_to_tri : [],
+
+      // Array of array, each sub array
+      // contains index into vert3d/vert2d
+      // of verticies used to construct triangle.
+      //
+      tri : [],
+
+      // groups of triangles forming
+      // a cutable piece.
+      //
+      section : [],
+
+      // symmetric matrix (as hash)
+      // of joined edges.  Key is
+      // x0:y0,x1:y1 and x1:y1,x0:y0
+      //
+      vertconn : {},
+
+      // has array of triangle faces (value as
+      // indices into tri above) for vertex
+      // key (as x:y).
+      //
+      jointri : {}
+    }
+
+  
+
+    $(document).ready( function() {
+      $(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+      });
+
+      init_threeD_window();
+      animate();
+    });
+
+    </script>
+
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">PepaCat</a>
+        </div>
+
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="#">Home</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="#upload">
+              <span style="right:10%;" class="glyphicon glyphicon-cloud-upload"
+                data-toggle="tooltip" data-placement="bottom" title="Upload STL">
+                </span>
+            </a></li>
+            <li><a href="#download">
+              <span style="right:10%;" class="glyphicon glyphicon-cloud-download"
+                data-toggle="tooltip" data-placement="bottom" title="Download SVG">
+                </span>
+            </a></li>
+          </ul>
+
+        </div><!--/.nav-collapse -->
+
+      </div>
+
+    </nav>
+
+    <div class="container" style="border:0px 0px 0px 0px; margin: 0px 0px 0px 0px; padding: 0px 0px 0px 0px; width:100%;">
+
+      <div class="row" style="height:100vh; width:100%; border:0px 0px 0px 0px; margin: 0px 0px 0px 0px;">
+
+        <div class="pepacat-template col-md-6" id="threeD" style="height:100%; border: 0px 0px 0px 0px; margin: 0px 0px 0px 0px;">
+
+          <!--
+          <h1>Bootstrap starter template</h1>
+          <p class="lead">Use this document as a way to quickly start any new project.<br> All you get is this text and a mostly barebones HTML document.</p>
+          -->
+
+          <button type="button" class="btn btn-default btn-lg unfold"
+            data-toggle="tooltip" data-placement="bottom" title="Unfold model">
+            <span class="glyphicon glyphicon-star"> unfold</span>
+          </button>
+
+
+        </div>
+
+        <div class="col-md-6" id="twoD" style="height:100%; padding: 0px 0px 0px 0px; border: 0px 0px 0px 0px; margin: 0px 0px 0px 0px;">
+          <!--
+          <h1>Bootstrap starter template</h1>
+          <p class="lead">Use this document as a way to quickly start any new project.<br> All you get is this text and a mostly barebones HTML document.</p>
+
+-->
+          <button type="button" class="btn btn-default btn-lg tool"
+            data-toggle="tooltip" data-placement="right" title="View">
+            <span class="glyphicon glyphicon-eye-open" style="width:25px; height:25px;"> </span>
+          </button>
+
+          <button type="button" class="btn btn-default btn-lg tool tool-u"
+            data-toggle="tooltip" data-placement="right" title="Move/Rotate">
+            <span class="glyphicon glyphicon-hand-up" style="width:25px; height:25px;"></span>
+          </button>
+
+          <button type="button" class="btn btn-default btn-lg tool tool-uu"
+            data-toggle="tooltip" data-placement="right" title="Cut edges">
+            <span class="glyphicon glyphicon-scissors" style="width:25px; height:25px;"></span>
+          </button>
+
+          <button type="button" class="btn btn-default btn-lg tool tool-uuu"
+            data-toggle="tooltip" data-placement="right" title="Glue edges">
+            <span class="glyphicon glyphicon-baby-formula" style="width:25px; height:25px;"></span>
+          </button>
+
+
+
+          <button type="button" class="btn btn-default btn-lg tool-undo"
+            data-toggle="tooltip" data-placement="top" title="Undo">
+            <span class="glyphicon glyphicon-step-backward"> </span>
+          </button>
+
+          <button type="button" class="btn btn-default btn-lg tool-redo"
+            data-toggle="tooltip" data-placement="top" title="Redo">
+            <span class="glyphicon glyphicon-step-forward"></span>
+          </button>
+
+        </div>
+
+      </div> <!-- row -->
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+  </body>
+</html>
