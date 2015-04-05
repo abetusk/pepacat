@@ -15,18 +15,42 @@ animate();
 */
 
 var g_threeD_state = {
+  mouseinit : false,
   mousedown : false,
   mousex : 0,
-  mousey : 0
-};
+  mousey : 0,
 
+  origx : 0,
+  origy : 0,
+  deltax : 0,
+  detlay : 0,
+
+  prevx : 0,
+  prevy : 0,
+
+  startx : 0,
+  starty : 0
+
+
+
+};
 
 function onMouseDown( e ) {
   g_threeD_state.mousedown = true;
+
+  g_threeD_state.startx = g_threeD_state.mousex;
+  g_threeD_state.starty = g_threeD_state.mousey;
+
+  g_threeD_state.prevx = g_mouse.x;
+  g_threeD_state.prevy = g_mouse.y;
+
 }
 
 function onMouseUp( e ) {
   g_threeD_state.mousedown = false;
+
+  g_threeD_state.origx = g_threeD_state.mousex;
+  g_threeD_state.origy = g_threeD_state.mousey;
 }
 
 function onMouseMove( e ) {
@@ -44,11 +68,29 @@ function onMouseMove( e ) {
   g_mouse.x = ( x / g_containerWidth ) * 2 - 1;
   g_mouse.y = - ( y / g_containerHeight ) * 2 + 1;   
 
+  if (!g_threeD_state.mouseinit) {
+    g_threeD_state.startmousex = g_mouse.x;
+    g_threeD_state.startmousey = g_mouse.y;
+
+    g_threeD_state.prevmousex = g_mouse.x;
+    g_threeD_state.prevmousey = g_mouse.y;
+
+    g_threeD_state.mouseinit = true;
+  }
+
   if (g_threeD_state.mousedown) {
     //g_threeD_state.mousex = g_mouse.x * Math.PI;
     //g_threeD_state.mousey = g_mouse.y * Math.PI;
-    g_threeD_state.mousex = g_mouse.x;
-    g_threeD_state.mousey = g_mouse.y;
+
+    g_threeD_state.deltax = (g_mouse.x - g_threeD_state.prevx);
+    g_threeD_state.deltay = (g_mouse.y - g_threeD_state.prevy);
+
+    g_threeD_state.prevx += g_threeD_state.deltax;
+    g_threeD_state.prevy += g_threeD_state.deltay;
+
+    g_threeD_state.mousex += g_threeD_state.deltax ;
+    g_threeD_state.mousey += g_threeD_state.deltay ;
+
   }
 
 }
