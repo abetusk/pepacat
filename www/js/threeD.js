@@ -159,8 +159,8 @@ function init_threeD_window() {
 
 
   loader.load( './models/Bunny-LowPoly.stl', function ( geometry ) {
-    //loader.load( './models/david_low_poly.stl', function ( geometry ) {
-    //loader.load( './models/david_low_poly_1024.stl', function ( geometry ) {
+  //loader.load( './models/david_low_poly.stl', function ( geometry ) {
+  //loader.load( './models/david_low_poly_1024.stl', function ( geometry ) {
     var verts = geometry.attributes.position.array;
     var n = verts.length;
 
@@ -249,8 +249,10 @@ function init_threeD_window() {
 
       //tri_mesh.position.set( 0, - 0.37, - 0.6 );
       //tri_mesh.position.set( -0.1, - 0.37, - 0.0 );
-      tri_mesh.position.set( -0.0, - 0.65, - 0.0 );
       //tri_mesh.position.set( -0.1, - Math.random()/10.5 - .3, 0.0);
+
+      //bunny
+      tri_mesh.position.set( -0.0, - 0.65, - 0.0 );
       tri_mesh.rotation.set( - Math.PI / 2, 0, 0 );
 
       tri_mesh.scale.set( sz,sy,sz );
@@ -372,6 +374,7 @@ function render() {
   //console.log(xx,yy);
 
   var R = 3.0;
+  //var R = 4.0;
   var camv = [ Math.cos( xx ), yy, Math.sin( xx ) ];
   var r = Math.sqrt( (camv[0]*camv[0]) + (camv[1]*camv[1]) + (camv[2]*camv[2]) );
   if (r < 0.1) { r = 1; }
@@ -406,6 +409,11 @@ function render() {
 
       var x = intersects[i].object;
       var geom = x.geometry;
+
+      if (g_threeD_state.mousedown) {
+        console.log("tri>>>", intersects[i].object._data.tri_ind);
+      }
+
     }
     first = false;
   }

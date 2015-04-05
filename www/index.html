@@ -50,6 +50,8 @@
       //
       vert_to_tri : [],
 
+      edge_to_tri : {},
+
       // Array of array, each sub array
       // contains index into vert3d/vert2d
       // of verticies used to construct triangle.
@@ -142,7 +144,8 @@
           -->
 
           <button type="button" class="btn btn-default btn-lg unfold"
-            data-toggle="tooltip" data-placement="bottom" title="Unfold model">
+            data-toggle="tooltip" data-placement="bottom" title="Unfold model"
+            onclick='choose_polygon_sections(g_pepacat_model);' >
             <span class="glyphicon glyphicon-star"> unfold</span>
           </button>
 
