@@ -8,15 +8,19 @@ var g_mouse = new THREE.Vector2();
 var g_raycaster = new THREE.Raycaster();
 
 var g_containerWidth, g_containerHeight;
+var g_redraw_3d=true;
 
 /*
 init_threeD_window();
 animate();
 */
 
+var g_edge_3 = {};
+
 var g_threeD_state = {
   mouseinit : false,
   mousedown : false,
+  firstmousedown : false,
   mousex : 0,
   mousey : 0,
 
@@ -33,9 +37,11 @@ var g_threeD_state = {
 
 
 
+
 };
 
 function onMouseDown( e ) {
+  g_threeD_state.firstmousedown = true;
   g_threeD_state.mousedown = true;
 
   g_threeD_state.startx = g_threeD_state.mousex;
@@ -47,6 +53,7 @@ function onMouseDown( e ) {
 }
 
 function onMouseUp( e ) {
+
   g_threeD_state.mousedown = false;
 
   g_threeD_state.origx = g_threeD_state.mousex;
@@ -54,6 +61,9 @@ function onMouseUp( e ) {
 }
 
 function onMouseMove( e ) {
+
+  g_redraw_3d=true;
+
   g_containerWidth = g_container.clientWidth;
   g_containerHeight = g_container.clientHeight;
 
@@ -95,29 +105,31 @@ function onMouseMove( e ) {
 
 }
 
+function _emit_line( u, v ) {
+  var line_mat = new THREE.LineBasicMaterial({ color:0x000000 });
+  var line_geom = new THREE.Geometry();
+  line_geom.vertices.push( new THREE.Vector3( u[0], u[1], u[2] ) );
+  line_geom.vertices.push( new THREE.Vector3( v[0], v[1], v[2] ) );
+  var line = new THREE.Line( line_geom, line_mat );
+  line._data = { type: "line" };
+
+  return line;
+}
+
+
 function r() { return Math.random()*0.5 + 0.25; }
 function init_threeD_window() {
-
-  //container = document.createElement( 'div' );
-  //document.body.appendChild( container );
-
   g_container = document.getElementById( "threeD" );
 
   g_containerWidth = g_container.clientWidth;
   g_containerHeight = g_container.clientHeight;
 
-  console.log( g_container );
-  console.log( g_container.clientWidth, g_container.clientHeight );
-  console.log( g_container.width, g_container.height );
-
   if (g_containerHeight <= 0) { g_containerHeight = 1; }
   var aspect = g_containerWidth / g_containerHeight;
 
-  //g_camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 15 );
   g_camera = new THREE.PerspectiveCamera( 35, aspect, 1, 15 );
   g_camera.position.set( 3, 0.15, 3 );
 
-  //g_cameraTarget = new THREE.Vector3( 0, -0.25, 0 );
   g_cameraTarget = new THREE.Vector3( 0, -0.25, 0 );
 
   g_scene = new THREE.Scene();
@@ -127,11 +139,17 @@ function init_threeD_window() {
   g_projector = new THREE.Projector();
   g_mouseVector = new THREE.Vector3();
 
+/*
   window.addEventListener( 'mousemove', onMouseMove, false );
   window.addEventListener( 'mousedown', onMouseDown, false );
   window.addEventListener( 'mouseup', onMouseUp, false );
   window.addEventListener( 'resize', onWindowResize, false );
+*/
 
+  g_container.addEventListener( 'mousemove', onMouseMove, false );
+  g_container.addEventListener( 'mousedown', onMouseDown, false );
+  g_container.addEventListener( 'mouseup', onMouseUp, false );
+  g_container.addEventListener( 'resize', onWindowResize, false );
 
   // Ground
 
@@ -140,7 +158,6 @@ function init_threeD_window() {
     new THREE.MeshPhongMaterial( { color: 0x999999, specular: 0x101010 } )
   );
   plane.rotation.x = -Math.PI/2;
-  //plane.position.y = -0.5;
   plane.position.y = -0.8;
   plane.ignore = true;
   g_scene.add( plane );
@@ -199,7 +216,6 @@ function init_threeD_window() {
       var c = "rgb(" + uniq_r + "," + uniq_g + "," + uniq_b + ")";
 
       var tri_mat = new THREE.MeshPhongMaterial({
-        //color : 0x888888,
         color : c,
         shading : THREE.FlatShading,
         specular: 0x000000, shininess: 0,
@@ -239,7 +255,7 @@ function init_threeD_window() {
 
 
       tri_mesh.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-      tri_mesh.rotation.set( 0, 0, 0 );
+      //tri_mesh.rotation.set( 0, 0, 0 );
 
       //bunny
       var s = .00800;
@@ -259,11 +275,85 @@ function init_threeD_window() {
       tri_mesh.castShadow = true;
       //tri_mesh.receiveShadow = true;
 
-      tri_mesh._data = { raw_ind: ind, tri_ind : Math.floor(ind/9) };
+      tri_mesh._data = { raw_ind: ind, tri_ind : Math.floor(ind/9), type:"tri" };
       g_pepacat_model.tri_mesh.push( tri_mesh );
       g_pepacat_model.tri_geom.push( tri_geom );
 
       g_scene.add( tri_mesh );
+
+
+      //TESTING
+      // fooling around with lines
+      //
+
+      var l_u = [verts[ind+0], verts[ind+1], verts[ind+2]];
+      var l_v = [verts[ind+3], verts[ind+4], verts[ind+5]];
+      var l_w = [verts[ind+6], verts[ind+7], verts[ind+8]];
+
+      var e0 = _norm_edge3(l_u, l_v);
+      var e1 = _norm_edge3(l_u, l_w);
+      var e2 = _norm_edge3(l_v, l_w);
+
+      if (!(e0 in g_edge_3)) {
+        var line = _emit_line( l_u, l_v );
+        g_edge_3[e0] = line;
+
+        var ss = sx;
+
+        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
+        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.rotation.set( - Math.PI / 2, 0, 0 );
+        line.scale.set( ss,ss,ss );
+        g_scene.add(line);
+      }
+
+      if (!(e1 in g_edge_3)) {
+        var line = _emit_line( l_u, l_w );
+        g_edge_3[e1] = line;
+
+        var ss = sx;
+
+        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
+        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.rotation.set( - Math.PI / 2, 0, 0 );
+        line.scale.set( ss,ss,ss );
+        g_scene.add(line);
+      }
+
+      if (!(e2 in g_edge_3)) {
+        var line = _emit_line( l_v, l_w );
+        g_edge_3[e2] = line;
+
+        var ss = sx;
+
+        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
+        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.rotation.set( - Math.PI / 2, 0, 0 );
+        line.scale.set( ss,ss,ss );
+        g_scene.add(line);
+      }
+
+      /*
+      var line_mat = new THREE.LineBasicMaterial({ color:0x000000 });
+      var line_geom = new THREE.Geometry();
+      line_geom.vertices.push( new THREE.Vector3( verts[ind+0], verts[ind+1], verts[ind+2] ) );
+      line_geom.vertices.push( new THREE.Vector3( verts[ind+3], verts[ind+4], verts[ind+5] ) );
+      line_geom.vertices.push( new THREE.Vector3( verts[ind+6], verts[ind+7], verts[ind+8] ) );
+      line_geom.vertices.push( new THREE.Vector3( verts[ind+0], verts[ind+1], verts[ind+2] ) );
+      var line = new THREE.Line( line_geom, line_mat );
+      line._data = { type: "line" };
+
+      line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
+      line.position.set( -0.0, - 0.65, - 0.0 );
+      line.rotation.set( - Math.PI / 2, 0, 0 );
+      line.scale.set( sz,sy,sz );
+
+      g_scene.add(line);
+      */
+
+      //
+      //TESTING
+
 
     }
 
@@ -356,7 +446,15 @@ function animate() {
 
   requestAnimationFrame( animate );
 
-  render();
+  if (g_redraw_3d) {
+    g_redraw_3d=false;
+
+    console.log(">>");
+
+    render();
+  }
+
+
   g_stats.update();
 
 }
@@ -365,28 +463,21 @@ function render() {
 
   var timer = Date.now() * 0.0005;
 
-  //g_camera.position.x = Math.cos( timer ) * 3;
-  //g_camera.position.z = Math.sin( timer ) * 3;
+  if (!g_threeD_state.firstmousedown) {
+    g_threeD_state.mousex = timer;
+    g_redraw_3d = true;
+  }
 
   var xx = Math.PI * g_threeD_state.mousex;
   var yy = Math.PI * g_threeD_state.mousey;
 
-  //console.log(xx,yy);
-
   var R = 3.0;
-  //var R = 4.0;
   var camv = [ Math.cos( xx ), yy, Math.sin( xx ) ];
   var r = Math.sqrt( (camv[0]*camv[0]) + (camv[1]*camv[1]) + (camv[2]*camv[2]) );
   if (r < 0.1) { r = 1; }
   g_camera.position.x = camv[0]*R/r;
   g_camera.position.y = -camv[1]*R/r;
   g_camera.position.z = camv[2]*R/r;
-
-  //console.log(camv);
-
-  //g_camera.position.x = Math.cos( timer ) * 3;
-  //g_camera.position.z = Math.sin( timer ) * 3;
-
 
 
   g_camera.lookAt( g_cameraTarget );
@@ -411,7 +502,8 @@ function render() {
       var geom = x.geometry;
 
       if (g_threeD_state.mousedown) {
-        console.log("tri>>>", intersects[i].object._data.tri_ind);
+        if (intersects[i].object._data.type == "tri")
+          console.log("tri>>>", intersects[i].object._data.tri_ind);
       }
 
     }
