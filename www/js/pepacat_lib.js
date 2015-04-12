@@ -13,6 +13,20 @@
 //   edge to split the section and recusively
 //   continue.
 
+var _eps = 0.00001;
+
+function simplecopy( src )
+{
+  try {
+    return JSON.parse( JSON.stringify(src) );
+  } catch(err)
+  {
+    console.log(err);
+    console.trace();
+  }
+}
+
+
 function _norm_vert3( u ) {
   var s = 1000000;
   var x = Math.floor(u[0]*s);
@@ -136,8 +150,16 @@ function _vsub3( u, v ) {
   return [ u[0]-v[0], u[1]-v[1], u[2]-v[2] ];
 }
 
+function _vsub2( u, v ) {
+  return [ u[0]-v[0], u[1]-v[1] ];
+}
+
 function _vnorm3( u ) {
   return Math.sqrt( (u[0]*u[0]) + (u[1]*u[1]) + (u[2]*u[2]) );
+}
+
+function _vnorm2( u ) {
+  return Math.sqrt( (u[0]*u[0]) + (u[1]*u[1]) );
 }
 
 function unpack_vert( model, ind ) {
@@ -151,7 +173,7 @@ function pepacat_valley( model, tri0, tri1 ) {
 
 function pepacat_tri_threshold( model, tri0, tri1, threshold ) {
   threshold = ( (typeof threshold === "undefined") ? 0 : threshold );
-  var _eps = 0.00001;
+  //var _eps = 0.00001;
 
   var u0 = unpack_vert( model, 3*tri0 );
   var v0 = unpack_vert( model, 3*tri0 + 1 );
@@ -449,19 +471,65 @@ function cut_tri_section( model, tri_section ) {
 
 }
 
-function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang) {
-  var u0 = unpack_vert(model, 3*tri_ind);
-  var u1 = unpack_vert(model, 3*tri_ind+1);
-  var u2 = unpack_vert(model, 3*tri_ind+2);
+//function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang, start_ind, flip) {
+function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang, start_ind) {
+  x = ((typeof x === "undefined") ? 0 : x);
+  y = ((typeof y === "undefined") ? 0 : y);
+  ang = ((typeof ang === "undefined") ? 0 : ang);
+  start_ind = ((typeof start_ind === "undefined") ? 0 : start_ind);
+  //flip = ((typeof flip === "undefined") ? false : flip);
 
-  var a = _vnorm3( _vsub3( u1, u0 ) );
-  var b = _vnorm3( _vsub3( u2, u1 ) );
-  var c = _vnorm3( _vsub3( u2, u0 ) );
+  //DEBUG
+  //flip = false;
+  //start_ind=0;
+
+  /*
+  var u0 = unpack_vert(model, 3*tri_ind + (start_ind));
+  var u1 = unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) );
+  var u2 = unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) );
+  */
+  var u0, u1, u2;
+  //if (!flip) {
+  var u = [
+    unpack_vert(model, 3*tri_ind + (start_ind)),
+    unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) ),
+    unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) )
+  ];
+  //} else {
+  //  u0 = unpack_vert(model, 3*tri_ind + (start_ind));
+  //  u1 = unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) );
+  //  u2 = unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) );
+  //}
+
+  var a = _vnorm3( _vsub3( u[1], u[0] ) );
+  var b = _vnorm3( _vsub3( u[2], u[1] ) );
+  var c = _vnorm3( _vsub3( u[2], u[0] ) );
 
   var a2 = a*a;
   var b2 = b*b;
   var c2 = c*c;
 
+  if (c2 < _eps) {
+    console.log("ERROR: triangle weird:", tri_ind, a2, b2, c2);
+    return;
+  }
+
+  var xf = (c2 + a2 - b2 ) / (2*a);
+  var yf = Math.sqrt( c2 - (xf*xf) );
+
+  var tri2 = [ [0,0], [a,0], [xf,yf] ];
+
+  //var invy = (flip ? 1.0 : -1.0);
+  var invy = 1.0;
+  for (var i=0; i<3; i++) {
+    var tx = Math.cos(ang)*tri2[i][0] + Math.sin(ang)*tri2[i][1];
+    var ty = Math.sin(ang)*tri2[i][0] - Math.cos(ang)*tri2[i][1];
+
+    tri2[i][0] = tx + x;
+    tri2[i][1] = invy*ty + y;
+  }
+
+  /*
   var alpha = Math.acos( (b2 + c2 - a2) / (2.0*b*c) );
   var beta  = Math.acos( (a2 + c2 - b2) / (2.0*a*c) );
   var gamma = Math.PI - alpha - beta;
@@ -473,14 +541,54 @@ function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang) {
   tri2[1][0] = x + Math.cos(ang)*a;
   tri2[1][1] = y + Math.sin(ang)*a;
 
-  tri2[2][0] = tri2[1][0] + Math.cos(ang+(Math.PI-gamma))*b;
-  tri2[2][0] = tri2[1][1] + Math.sin(ang+(Math.PI-gamma))*b;
+  tri2[2][0] = tri2[1][0] + s*Math.cos(ang+(Math.PI-gamma))*b;
+  tri2[2][1] = tri2[1][1] + s*Math.sin(ang+(Math.PI-gamma))*b;
+  */
 
   model.vert2d_placed[tri_ind] = true;
   model.vert2d[tri_ind] = tri2;
+
+  return tri2;
 }
 
-function _tri_unfold_single( model, a_ind, b_ind ) {
+function _scale2d(v, scale) {
+  for (var ind in v) {
+    for (var ii in v[ind]) {
+      v[ind][ii] *= scale;
+    }
+  }
+  return v;
+}
+
+function __debug(model, tri_ind) {
+  var u = [];
+  u[0] = unpack_vert(model, 3*tri_ind);
+  u[1] = unpack_vert(model, 3*tri_ind+1);
+  u[2] = unpack_vert(model, 3*tri_ind+2);
+
+  var l01 = _vnorm3( _vsub3( u[1], u[0] ) );
+  var l12 = _vnorm3( _vsub3( u[2], u[1] ) );
+  var l20 = _vnorm3( _vsub3( u[0], u[2] ) );
+
+  var v2 = [
+    model.vert2d[tri_ind][0],
+    model.vert2d[tri_ind][1],
+    model.vert2d[tri_ind][2] ];
+
+  var m01 = _vnorm2( _vsub2( v2[1], v2[0] ) );
+  var m12 = _vnorm2( _vsub2( v2[2], v2[1] ) );
+  var m20 = _vnorm2( _vsub2( v2[0], v2[2] ) );
+
+  console.log("{" + tri_ind + "}:", l01, m01 );
+  console.log("{" + tri_ind + "}:", l12, m12 );
+  console.log("{" + tri_ind + "}:", l20, m20 );
+
+}
+
+function _tri_unfold_single(model, a_ind, b_ind, tf) {
+
+  tf = ((typeof tf === "undefined") ? false : tf);
+
   var u = [];
   u[0] = unpack_vert(model, 3*a_ind);
   u[1] = unpack_vert(model, 3*a_ind+1);
@@ -501,6 +609,10 @@ function _tri_unfold_single( model, a_ind, b_ind ) {
   ev[1] = _norm_edge3(v[1], v[2]);
   ev[2] = _norm_edge3(v[2], v[0]);
 
+  //DEBUG
+  for (var i=0; i<3; i++) { console.log("edge u", i, eu[i]); }
+  for (var i=0; i<3; i++) { console.log("edge v", i, ev[i]); }
+
   var eu_ind;
   var ev_ind;
   for (eu_ind=0; eu_ind<3; eu_ind++) {
@@ -510,25 +622,58 @@ function _tri_unfold_single( model, a_ind, b_ind ) {
     if (eu[eu_ind] == ev[ev_ind]) { break; }
   }
 
+  //DEBUG
+  console.log("CHECK MATCH:");
+  console.log("eu_ind: ", eu_ind, " u[.]:", u[eu_ind], "u[.+1]:", u[(eu_ind+1)%3]);
+  console.log("ev_ind: ", ev_ind, " v[.]:", v[ev_ind], "v[.+1]:", v[(ev_ind+1)%3]);
+
   if ((eu_ind==3) || (ev_ind==3)) {
     console.log("eu_ind ev_ind error", eu_ind, ev_ind);
     return;
   }
 
+  var tris = [];
+
   var tri2_a;
+  var tri2_b;
   if (!(a_ind in model.vert2d_placed)) {
     tri2_a = _splat_3d_to_2d_tri(model, a_ind, 0, 0, 0);
   } else {
-    tri2_a = mode.vert2d[a_ind];
+    tri2_a = model.vert2d[a_ind];
   }
+  tris.push(tri2_a);
 
-  var a0 = tri2[ev_ind];
-  var a1 = tri2[(ev_ind+1)%3];
+  console.log("u>> eu_ind", eu_ind, tri2_a[0], tri2_a[1], tri2_a[2]);
 
-  var da = _vsub3(a0, a1);
+  //eu_ind=1;
+  var a0 = tri2_a[eu_ind];
+  var a1 = tri2_a[(eu_ind+1)%3];
+  var a2 = tri2_a[(eu_ind+2)%3];
+
+  var da = _vsub2(a1, a0);
+  //var ang = Math.atan2(da[1], da[0]);
   var ang = Math.atan2(da[1], da[0]);
 
-  tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], ang);
+  //var da = _vsub2(a2, a1);
+  //var ang = Math.atan2(da[1], da[0]);
+
+  //DEBUG
+  console.log( ang, da, a0, a1);
+
+  model.vert2d_placed[b_ind] = true;
+  tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], ang, ev_ind);
+  //tri2_b = _splat_3d_to_2d_tri(model, b_ind, a2[0], a2[1], ang, ev_ind);
+
+  /*
+  if (tf) {
+    tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], ang, ev_ind);
+  } else  {
+    tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], -ang, ev_ind);
+  }
+  */
+
+  tris.push(tri2_b);
+  return tris;
 }
 
 function _tri_3d_to_2d( p ) {

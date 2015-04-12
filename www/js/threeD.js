@@ -41,6 +41,8 @@ var g_threeD_state = {
 };
 
 function onMouseDown( e ) {
+  g_redraw_3d=true;
+
   g_threeD_state.firstmousedown = true;
   g_threeD_state.mousedown = true;
 
@@ -49,10 +51,10 @@ function onMouseDown( e ) {
 
   g_threeD_state.prevx = g_mouse.x;
   g_threeD_state.prevy = g_mouse.y;
-
 }
 
 function onMouseUp( e ) {
+  g_redraw_3d=true;
 
   g_threeD_state.mousedown = false;
 
@@ -61,7 +63,6 @@ function onMouseUp( e ) {
 }
 
 function onMouseMove( e ) {
-
   g_redraw_3d=true;
 
   g_containerWidth = g_container.clientWidth;
@@ -359,6 +360,43 @@ function init_threeD_window() {
 
     pepacat_init( g_pepacat_model );
 
+
+    //DEBUG
+    x0 = _tri_unfold_single( g_pepacat_model, 53, 244, true );
+    x1 = _tri_unfold_single( g_pepacat_model, 244, 41, false );
+
+    var t0 = simplecopy(x0);
+    var t1 = simplecopy(x1);
+    _scale2d(t0[0], 10) ; _scale2d(t0[1],10) ;
+    _scale2d(t1[0], 10) ; _scale2d(t1[1],10) ;
+    //g_2d.debug_geom = [ t0[0], t0[1], t1[0], t1[1] ];
+
+    console.log(t0);
+    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t0[0][0], t0[0][1]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t0[0][1], t0[0][2]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t0[0][2], t0[0][0]] } );
+
+    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t0[1][0], t0[1][1]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t0[1][1], t0[1][2]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t0[1][2], t0[1][0]] } );
+
+    //g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t1[0][0], t1[0][1]] } );
+    //g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t1[0][1], t1[0][2]] } );
+    //g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t1[0][2], t1[0][0]] } );
+
+    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t1[1][0], t1[1][1]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t1[1][1], t1[1][2]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t1[1][2], t1[1][0]] } );
+
+    for (var i=0; i<3; i++) { }
+    //g_2d.debug_geom = [ t1[0], t1[1] ];
+
+
+    __debug(g_pepacat_model, 53);
+    __debug(g_pepacat_model, 244);
+    __debug(g_pepacat_model, 41);
+
+
   });
 
 
@@ -448,9 +486,6 @@ function animate() {
 
   if (g_redraw_3d) {
     g_redraw_3d=false;
-
-    console.log(">>");
-
     render();
   }
 

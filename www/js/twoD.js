@@ -8,6 +8,7 @@ var g_painter;
 
 var g_2d = {
   debug_geom: [],
+  debug_cpath: [],
   mouse_x: 0,
   mouse_y: 0,
   mouse_drag : false
@@ -25,14 +26,16 @@ function canvas_coords_from_global(x, y) {
 }
 
 function loop2d() {
-
   if (g_painter.dirty_flag) {
     g_painter.startDraw();
     g_painter.drawGrid();
 
-
     for (var i=0; i<g_2d.debug_geom.length; i++) {
-      g_painter.drawPath(g_2d.debug_geom[i], 0, 0, "rgba(128,128,128,0.8)", 2, true);
+      g_painter.drawPath(g_2d.debug_geom[i], 0, 0, "rgba(128,128,128,0.8)", 10, true);
+    }
+
+    for (var i=0; i<g_2d.debug_cpath.length; i++) {
+      g_painter.drawPath(g_2d.debug_cpath[i].data, 0, 0, g_2d.debug_cpath[i].color, 10, true);
     }
 
     g_painter.endDraw();
@@ -48,11 +51,11 @@ function mousedrag2d(dx, dy) {
 }
 
 function mousedown2d(button, x, y) {
-  if (button==3) { g_2d.mouse_drag = true; }
+  if (button==1) { g_2d.mouse_drag = true; }
 }
 
 function mouseup2d(button, x, y) {
-  if (button==3) { g_2d.mouse_drag = false; }
+  if (button==1) { g_2d.mouse_drag = false; }
 }
 
 function mousemove2d(x, y) {
@@ -80,11 +83,6 @@ function mousewheel2d(delta) {
 }
 
 function init_twoD_window() {
-
-  //DEBUG
-  g_2d.debug_geom.push( [ [0,0], [100,0], [50,50] ] );
-  //DEBUG
-
   g_painter = new bleepsixRender("canvas");
   g_painter.setGrid(2);
 
