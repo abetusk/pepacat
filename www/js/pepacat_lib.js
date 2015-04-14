@@ -23,6 +23,7 @@ function simplecopy( src )
   {
     console.log(err);
     console.trace();
+    console.log(src);
   }
 }
 
@@ -471,35 +472,51 @@ function cut_tri_section( model, tri_section ) {
 
 }
 
-//function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang, start_ind, flip) {
+function _splat_3d_to_2d_tri_init(model, tri_ind, start_ind) {
+  var u0, u1, u2;
+  var u = [
+    unpack_vert(model, 3*tri_ind + start_ind),
+    unpack_vert(model, 3*tri_ind + ((start_ind+1)%3)),
+    unpack_vert(model, 3*tri_ind + ((start_ind+2)%3))
+  ];
+
+  var a = _vnorm3( _vsub3( u[1], u[0] ) );
+  var b = _vnorm3( _vsub3( u[2], u[1] ) );
+  var c = _vnorm3( _vsub3( u[2], u[0] ) );
+
+  var a2 = a*a;
+  var b2 = b*b;
+  var c2 = c*c;
+
+  var xf = (c2 + a2 - b2 ) / (2*a);
+  var yf = Math.sqrt( c2 - (xf*xf) );
+
+  var tri2 = [ [0,0], [a,0], [xf,yf] ];
+
+  var t_tri = [];
+  for (var i=0; i<3; i++) {
+    t_tri.push(tri2[(3-start_ind+i)%3]);
+  }
+  tri2 = t_tri;
+
+  model.vert2d_placed[tri_ind] = true;
+  model.vert2d[tri_ind] = tri2;
+
+  return tri2;
+}
+
 function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang, start_ind) {
   x = ((typeof x === "undefined") ? 0 : x);
   y = ((typeof y === "undefined") ? 0 : y);
   ang = ((typeof ang === "undefined") ? 0 : ang);
   start_ind = ((typeof start_ind === "undefined") ? 0 : start_ind);
-  //flip = ((typeof flip === "undefined") ? false : flip);
 
-  //DEBUG
-  //flip = false;
-  //start_ind=0;
-
-  /*
-  var u0 = unpack_vert(model, 3*tri_ind + (start_ind));
-  var u1 = unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) );
-  var u2 = unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) );
-  */
   var u0, u1, u2;
-  //if (!flip) {
   var u = [
     unpack_vert(model, 3*tri_ind + (start_ind)),
     unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) ),
     unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) )
   ];
-  //} else {
-  //  u0 = unpack_vert(model, 3*tri_ind + (start_ind));
-  //  u1 = unpack_vert(model, 3*tri_ind + ((start_ind+2)%3) );
-  //  u2 = unpack_vert(model, 3*tri_ind + ((start_ind+1)%3) );
-  //}
 
   var a = _vnorm3( _vsub3( u[1], u[0] ) );
   var b = _vnorm3( _vsub3( u[2], u[1] ) );
@@ -515,35 +532,35 @@ function _splat_3d_to_2d_tri(model, tri_ind, x, y, ang, start_ind) {
   }
 
   var xf = (c2 + a2 - b2 ) / (2*a);
-  var yf = Math.sqrt( c2 - (xf*xf) );
+  var yf = Math.sqrt(c2 - (xf*xf));
 
   var tri2 = [ [0,0], [a,0], [xf,yf] ];
 
-  //var invy = (flip ? 1.0 : -1.0);
-  var invy = 1.0;
-  for (var i=0; i<3; i++) {
-    var tx = Math.cos(ang)*tri2[i][0] + Math.sin(ang)*tri2[i][1];
-    var ty = Math.sin(ang)*tri2[i][0] - Math.cos(ang)*tri2[i][1];
+  var loc_x = tri2[1][0];
+  var loc_y = tri2[1][1];
 
-    tri2[i][0] = tx + x;
-    tri2[i][1] = invy*ty + y;
+  // shift tri2 appropriately
+  //
+  var t_tri = [];
+  for (var i=0; i<3; i++) {
+    t_tri.push(tri2[(3-start_ind+i)%3]);
+  }
+  tri2 = t_tri;
+
+  for (var i=0; i<3; i++) {
+    tri2[i][0] -= loc_x;
+    tri2[i][1] -= loc_y;
   }
 
-  /*
-  var alpha = Math.acos( (b2 + c2 - a2) / (2.0*b*c) );
-  var beta  = Math.acos( (a2 + c2 - b2) / (2.0*a*c) );
-  var gamma = Math.PI - alpha - beta;
+  //ang = Math.PI - ang;
 
-  var tri2 = [ [0,0], [0,0], [0,0] ];
-  tri2[0][0] = x;
-  tri2[0][1] = y;
+  for (var i=0; i<3; i++) {
+    var tx = Math.cos(ang)*tri2[i][0] - Math.sin(ang)*tri2[i][1];
+    var ty = Math.sin(ang)*tri2[i][0] + Math.cos(ang)*tri2[i][1];
 
-  tri2[1][0] = x + Math.cos(ang)*a;
-  tri2[1][1] = y + Math.sin(ang)*a;
-
-  tri2[2][0] = tri2[1][0] + s*Math.cos(ang+(Math.PI-gamma))*b;
-  tri2[2][1] = tri2[1][1] + s*Math.sin(ang+(Math.PI-gamma))*b;
-  */
+    tri2[i][0] = tx + x;
+    tri2[i][1] = ty + y;
+  }
 
   model.vert2d_placed[tri_ind] = true;
   model.vert2d[tri_ind] = tri2;
@@ -556,6 +573,14 @@ function _scale2d(v, scale) {
     for (var ii in v[ind]) {
       v[ind][ii] *= scale;
     }
+  }
+  return v;
+}
+
+function _trans2d(v, x, y) {
+  for (var ind in v) {
+    v[ind][0] += x;
+    v[ind][1] += y;
   }
   return v;
 }
@@ -585,10 +610,7 @@ function __debug(model, tri_ind) {
 
 }
 
-function _tri_unfold_single(model, a_ind, b_ind, tf) {
-
-  tf = ((typeof tf === "undefined") ? false : tf);
-
+function _tri_unfold_single(model, a_ind, b_ind) {
   var u = [];
   u[0] = unpack_vert(model, 3*a_ind);
   u[1] = unpack_vert(model, 3*a_ind+1);
@@ -609,10 +631,6 @@ function _tri_unfold_single(model, a_ind, b_ind, tf) {
   ev[1] = _norm_edge3(v[1], v[2]);
   ev[2] = _norm_edge3(v[2], v[0]);
 
-  //DEBUG
-  for (var i=0; i<3; i++) { console.log("edge u", i, eu[i]); }
-  for (var i=0; i<3; i++) { console.log("edge v", i, ev[i]); }
-
   var eu_ind;
   var ev_ind;
   for (eu_ind=0; eu_ind<3; eu_ind++) {
@@ -621,11 +639,6 @@ function _tri_unfold_single(model, a_ind, b_ind, tf) {
     }
     if (eu[eu_ind] == ev[ev_ind]) { break; }
   }
-
-  //DEBUG
-  console.log("CHECK MATCH:");
-  console.log("eu_ind: ", eu_ind, " u[.]:", u[eu_ind], "u[.+1]:", u[(eu_ind+1)%3]);
-  console.log("ev_ind: ", ev_ind, " v[.]:", v[ev_ind], "v[.+1]:", v[(ev_ind+1)%3]);
 
   if ((eu_ind==3) || (ev_ind==3)) {
     console.log("eu_ind ev_ind error", eu_ind, ev_ind);
@@ -637,40 +650,21 @@ function _tri_unfold_single(model, a_ind, b_ind, tf) {
   var tri2_a;
   var tri2_b;
   if (!(a_ind in model.vert2d_placed)) {
-    tri2_a = _splat_3d_to_2d_tri(model, a_ind, 0, 0, 0);
+    tri2_a = _splat_3d_to_2d_tri_init(model, a_ind, eu_ind);
   } else {
     tri2_a = model.vert2d[a_ind];
   }
   tris.push(tri2_a);
 
-  console.log("u>> eu_ind", eu_ind, tri2_a[0], tri2_a[1], tri2_a[2]);
-
-  //eu_ind=1;
   var a0 = tri2_a[eu_ind];
   var a1 = tri2_a[(eu_ind+1)%3];
   var a2 = tri2_a[(eu_ind+2)%3];
 
-  var da = _vsub2(a1, a0);
-  //var ang = Math.atan2(da[1], da[0]);
+  var da = _vsub2(a0, a1);
   var ang = Math.atan2(da[1], da[0]);
-
-  //var da = _vsub2(a2, a1);
-  //var ang = Math.atan2(da[1], da[0]);
-
-  //DEBUG
-  console.log( ang, da, a0, a1);
 
   model.vert2d_placed[b_ind] = true;
   tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], ang, ev_ind);
-  //tri2_b = _splat_3d_to_2d_tri(model, b_ind, a2[0], a2[1], ang, ev_ind);
-
-  /*
-  if (tf) {
-    tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], ang, ev_ind);
-  } else  {
-    tri2_b = _splat_3d_to_2d_tri(model, b_ind, a0[0], a0[1], -ang, ev_ind);
-  }
-  */
 
   tris.push(tri2_b);
   return tris;
@@ -690,17 +684,90 @@ function _tri_3d_to_2d( p ) {
   var gamma = Math.PI - alpha - beta;
 }
 
-function unfold_tri_graph( model, tri_graph ) {
-  console.log(">>>");
-  console.log(tri_graph);
+function unfold_tri_graph(model, tri_graph) {
+  var tri_seen = {};
+  var tri_queue = [];
+  var single_tri_ind = -1;
+  for (var tri_ind in tri_graph) {
+    tri_queue.push(tri_ind);
+    single_tri_ind = tri_ind;
+    break;
+  }
+
+  var tri_processed=0;
+
+  while (tri_queue.length>0) {
+    var tri_ind = tri_queue[0];
+   
+    for (var nei_tri in tri_graph[tri_ind]) {
+      if (tri_seen[nei_tri])
+        continue;
+      tri_queue.push(nei_tri);
+      _tri_unfold_single(model, tri_ind, nei_tri);
+    }
+    tri_seen[tri_ind] = true;
+
+    tri_queue.shift();
+    tri_processed++;
+  }
+
+  // Degenerate case of a single triangle.
+  //
+  if (tri_processed==1) {
+    if (single_tri_ind>=0) {
+      _splat_3d_to_2d_tri_init(model, single_tri_ind, 0);
+    }
+  }
+
 }
+
+function _splat_debug_tri_graph(model, tri_graph, x, y) {
+  x = ((typeof x === "undefined") ? 0 : x);
+  y = ((typeof y === "undefined") ? 0 : y);
+  var tri_seen = {};
+
+  for (var tri_ind in tri_graph) {
+
+    if (!tri_seen[tri_ind]) {
+      var v0 = simplecopy( model.vert2d[tri_ind] );
+      _scale2d( v0, 10 );
+      _trans2d( v0, x, y );
+      g_2d.debug_cpath.push({ color:"rgba(255,0,0,0.5)", data: [ v0[0], v0[1] ] });
+      g_2d.debug_cpath.push({ color:"rgba(0,255,0,0.5)", data: [ v0[1], v0[2] ] });
+      g_2d.debug_cpath.push({ color:"rgba(0,0,255,0.5)", data: [ v0[2], v0[0] ] });
+    }
+    tri_seen[tri_ind] = true;
+
+    for (var nei_ind in tri_graph[tri_ind]) {
+      if (tri_seen[nei_ind]) { continue; }
+      tri_seen[nei_ind] = true;
+
+      var v0 = simplecopy( model.vert2d[nei_ind] );
+      _scale2d( v0, 10 );
+      _trans2d( v0, x, y );
+      g_2d.debug_cpath.push({ color:"rgba(255,0,0,0.5)", data: [ v0[0], v0[1] ] });
+      g_2d.debug_cpath.push({ color:"rgba(0,255,0,0.5)", data: [ v0[1], v0[2] ] });
+      g_2d.debug_cpath.push({ color:"rgba(0,0,255,0.5)", data: [ v0[2], v0[0] ] });
+    }
+
+  }
+
+}
+
+
+
 
 function do_complete_unfold() {
   var section = choose_polygon_sections(g_pepacat_model);
 
-  for (var i in section) {
-    var tri_graph = cut_tri_section( g_pepacat_model, section[i] );
-    unfold_tri_graph( g_pepacat_model, tri_graph );
+  var model = g_pepacat_model;
+  var tri_graph;
+
+  for (var s_ind in section) {
+    tri_graph = cut_tri_section(model, section[s_ind]);
+    unfold_tri_graph(model, tri_graph);
+    _splat_debug_tri_graph(model, tri_graph, 1000*s_ind, 1000*s_ind);
   }
+
 
 }

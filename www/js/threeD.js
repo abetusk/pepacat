@@ -10,17 +10,18 @@ var g_raycaster = new THREE.Raycaster();
 var g_containerWidth, g_containerHeight;
 var g_redraw_3d=true;
 
-/*
-init_threeD_window();
-animate();
-*/
-
 var g_edge_3 = {};
 
 var g_threeD_state = {
   mouseinit : false,
   mousedown : false,
-  firstmousedown : false,
+
+  //DEBUG
+  //firstmousedown : false,
+  firstmousedown : true,
+
+  cameraR : 3.0,
+
   mousex : 0,
   mousey : 0,
 
@@ -34,9 +35,6 @@ var g_threeD_state = {
 
   startx : 0,
   starty : 0
-
-
-
 
 };
 
@@ -60,6 +58,22 @@ function onMouseUp( e ) {
 
   g_threeD_state.origx = g_threeD_state.mousex;
   g_threeD_state.origy = g_threeD_state.mousey;
+}
+
+function onMouseWheel( delta ) {
+
+  if (delta>0) {
+    g_threeD_state.cameraR -= 0.125;
+  } else {
+    g_threeD_state.cameraR += 0.125;
+  }
+
+  if (g_threeD_state.cameraR < 1.0)
+    g_threeD_state.cameraR = 1.0;
+  if (g_threeD_state.cameraR > 10.0)
+    g_threeD_state.cameraR = 10.0;
+
+  return false;
 }
 
 function onMouseMove( e ) {
@@ -90,9 +104,6 @@ function onMouseMove( e ) {
   }
 
   if (g_threeD_state.mousedown) {
-    //g_threeD_state.mousex = g_mouse.x * Math.PI;
-    //g_threeD_state.mousey = g_mouse.y * Math.PI;
-
     g_threeD_state.deltax = (g_mouse.x - g_threeD_state.prevx);
     g_threeD_state.deltay = (g_mouse.y - g_threeD_state.prevy);
 
@@ -101,7 +112,6 @@ function onMouseMove( e ) {
 
     g_threeD_state.mousex += g_threeD_state.deltax ;
     g_threeD_state.mousey += g_threeD_state.deltay ;
-
   }
 
 }
@@ -140,15 +150,15 @@ function init_threeD_window() {
   g_projector = new THREE.Projector();
   g_mouseVector = new THREE.Vector3();
 
-/*
-  window.addEventListener( 'mousemove', onMouseMove, false );
-  window.addEventListener( 'mousedown', onMouseDown, false );
-  window.addEventListener( 'mouseup', onMouseUp, false );
-  window.addEventListener( 'resize', onWindowResize, false );
-*/
-
   g_container.addEventListener( 'mousemove', onMouseMove, false );
   g_container.addEventListener( 'mousedown', onMouseDown, false );
+
+  $(g_container).mousewheel( function(ev, delta, detlaX, deltaY) {
+    onMouseWheel(delta);
+    return false;
+  });
+
+
   g_container.addEventListener( 'mouseup', onMouseUp, false );
   g_container.addEventListener( 'resize', onWindowResize, false );
 
@@ -295,14 +305,18 @@ function init_threeD_window() {
       var e1 = _norm_edge3(l_u, l_w);
       var e2 = _norm_edge3(l_v, l_w);
 
+      var ss = sx*1.05;
+      var wire_x = 0.0;
+      var wire_y = -0.68;
+      var wire_z = 0.0;
       if (!(e0 in g_edge_3)) {
         var line = _emit_line( l_u, l_v );
         g_edge_3[e0] = line;
 
-        var ss = sx;
+        //var ss = sx;
 
         line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.position.set( wire_x, wire_y, wire_z );
         line.rotation.set( - Math.PI / 2, 0, 0 );
         line.scale.set( ss,ss,ss );
         g_scene.add(line);
@@ -312,10 +326,10 @@ function init_threeD_window() {
         var line = _emit_line( l_u, l_w );
         g_edge_3[e1] = line;
 
-        var ss = sx;
+        //var ss = sx;
 
         line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.position.set( wire_x, wire_y, wire_z );
         line.rotation.set( - Math.PI / 2, 0, 0 );
         line.scale.set( ss,ss,ss );
         g_scene.add(line);
@@ -325,10 +339,10 @@ function init_threeD_window() {
         var line = _emit_line( l_v, l_w );
         g_edge_3[e2] = line;
 
-        var ss = sx;
+        //var ss = sx;
 
         line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( -0.0, - 0.65, - 0.0 );
+        line.position.set( wire_x, wire_y, wire_z );
         line.rotation.set( - Math.PI / 2, 0, 0 );
         line.scale.set( ss,ss,ss );
         g_scene.add(line);
@@ -362,16 +376,22 @@ function init_threeD_window() {
 
 
     //DEBUG
+    /*
     x0 = _tri_unfold_single( g_pepacat_model, 53, 244, true );
     x1 = _tri_unfold_single( g_pepacat_model, 244, 41, false );
+    x2 = _tri_unfold_single( g_pepacat_model, 41, 263, false );
+    x3 = _tri_unfold_single( g_pepacat_model, 263, 201, false );
 
     var t0 = simplecopy(x0);
     var t1 = simplecopy(x1);
+    var t2 = simplecopy(x2);
+    var t3 = simplecopy(x3);
     _scale2d(t0[0], 10) ; _scale2d(t0[1],10) ;
     _scale2d(t1[0], 10) ; _scale2d(t1[1],10) ;
+    _scale2d(t2[0], 10) ; _scale2d(t2[1],10) ;
+    _scale2d(t3[0], 10) ; _scale2d(t3[1],10) ;
     //g_2d.debug_geom = [ t0[0], t0[1], t1[0], t1[1] ];
 
-    console.log(t0);
     g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t0[0][0], t0[0][1]] } );
     g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t0[0][1], t0[0][2]] } );
     g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t0[0][2], t0[0][0]] } );
@@ -388,14 +408,57 @@ function init_threeD_window() {
     g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t1[1][1], t1[1][2]] } );
     g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t1[1][2], t1[1][0]] } );
 
+    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t2[1][0], t2[1][1]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t2[1][1], t2[1][2]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t2[1][2], t2[1][0]] } );
+
+    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t3[1][0], t3[1][1]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t3[1][1], t3[1][2]] } );
+    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t3[1][2], t3[1][0]] } );
+
     for (var i=0; i<3; i++) { }
     //g_2d.debug_geom = [ t1[0], t1[1] ];
 
 
-    __debug(g_pepacat_model, 53);
-    __debug(g_pepacat_model, 244);
-    __debug(g_pepacat_model, 41);
+    //__debug(g_pepacat_model, 53);
+    //__debug(g_pepacat_model, 244);
+    //__debug(g_pepacat_model, 41);
+    */
 
+    /*
+    var XX = [];
+    XX.push( _tri_unfold_single( g_pepacat_model, 42, 255 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 255, 18 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 18, 278 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 18, 101 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 101, 224 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 101, 34 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 34, 269 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 269, 141 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 141, 190 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 190, 89 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 89, 14 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 14, 289 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 289, 32 ) );
+    XX.push( _tri_unfold_single( g_pepacat_model, 32, 97 ) );
+
+    var TT = [];
+    for (var ind=0; ind<XX.length; ind++) {
+      TT.push( simplecopy(XX[ind]) );
+      _scale2d(TT[ind][0], 10) ; _scale2d(TT[ind][1],10) ;
+    }
+
+    for (var ind =0; ind<TT.length; ind++) {
+
+      g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [TT[ind][0][0], TT[ind][0][1]] } );
+      g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [TT[ind][0][1], TT[ind][0][2]] } );
+      g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [TT[ind][0][2], TT[ind][0][0]] } );
+
+      g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [TT[ind][1][0], TT[ind][1][1]] } );
+      g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [TT[ind][1][1], TT[ind][1][2]] } );
+      g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [TT[ind][1][2], TT[ind][1][0]] } );
+    }
+    */
 
   });
 
@@ -506,7 +569,8 @@ function render() {
   var xx = Math.PI * g_threeD_state.mousex;
   var yy = Math.PI * g_threeD_state.mousey;
 
-  var R = 3.0;
+  var R = g_threeD_state.cameraR;
+  //var R = 3.0;
   var camv = [ Math.cos( xx ), yy, Math.sin( xx ) ];
   var r = Math.sqrt( (camv[0]*camv[0]) + (camv[1]*camv[1]) + (camv[2]*camv[2]) );
   if (r < 0.1) { r = 1; }
