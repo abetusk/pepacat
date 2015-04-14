@@ -86,6 +86,19 @@ function init_twoD_window() {
   g_painter = new bleepsixRender("canvas");
   g_painter.setGrid(2);
 
+  // Stop the grabby hand.
+  // Sometimes when left clicking and quickly draggin
+  // a 'hand icon' will appear.  'mouseup' event
+  // is ignored and suddenly you need to click to
+  // register another mousedown (and then unclick
+  // to register a mouseup).
+  //
+  // To fix:
+  // http://stackoverflow.com/questions/2659999/html5-canvas-hand-cursor-problems
+  //
+  var canv = document.getElementById("canvas");
+  canv.onselectstart = function() { return false; };
+
   g_canvas2d = $("#canvas")[0];
   g_container2d = document.getElementById("twoD");
 
@@ -98,6 +111,22 @@ function init_twoD_window() {
   requestAnimationFrame(loop2d, 1);
 
   $(g_container2d).focus( function(ev) { });
+
+  //$(g_container2d).toggle( function(ev) { console.log("toggle>>"); });
+
+  /*
+  $(g_container2d).mouseout( function(ev) {
+    console.log("mouseout>>");
+  });
+
+  $(g_container2d).dblclick( function(ev) {
+    console.log("dblclick>>");
+  });
+
+  $(g_container2d).click( function(ev) {
+    console.log("click>>");
+  });
+  */
 
   $(g_container2d).mousedown( function(ev) {
     var xy = canvas_coords_from_global(ev.pageX, ev.pageY);
