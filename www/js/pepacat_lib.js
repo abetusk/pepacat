@@ -27,6 +27,34 @@ function simplecopy( src )
   }
 }
 
+function _norm_vert2(u) {
+  var s = 1000000;
+  var x = Math.floor(u[0]*s + 0.5);
+  var y = Math.floor(u[1]*s + 0.5);
+
+  return x + ":" + y;
+}
+
+function _norm_edge2(u,v) {
+  var s = 1000000;
+  var x0 = Math.floor(u[0]*s + 0.5);
+  var y0 = Math.floor(u[1]*s + 0.5);
+
+  var x1 = Math.floor(v[0]*s + 0.5);
+  var y1 = Math.floor(v[1]*s + 0.5);
+
+  if (x0 < x1) {
+    return _norm_vert2(u) + "," + _norm_vert2(v);
+  } else if (x0 > x1) {
+    return _norm_vert2(v) + "," + _norm_vert2(u);
+  }
+
+  if (y0 > y1) {
+    return _norm_vert2(v) + "," + _norm_vert2(u);
+  }
+
+  return _norm_vert2(u) + "," + _norm_vert2(v);
+}
 
 function _norm_vert3( u ) {
   var s = 1000000;
@@ -721,6 +749,22 @@ function unfold_tri_graph(model, tri_graph) {
 
 }
 
+function _splat_debug_path(model, path, x, y) {
+  x = ((typeof x === "undefined") ? 0 : x);
+  y = ((typeof y === "undefined") ? 0 : y);
+
+  var s = 10;
+  for (var ind=1; ind<path.length; ind++) {
+    var u0 = simplecopy( path[ind-1] );
+    var v0 = simplecopy( path[ind] );
+
+    u0[0] = u0[0]*s + x; u0[1] = u0[1]*s + y;
+    v0[0] = v0[0]*s + x; v0[1] = v0[1]*s + y;
+
+    g_2d.debug_cpath.push({ color:"rgba(0,0,0,0.9)", data: [ u0, v0 ] });
+  }
+}
+
 function _splat_debug_tri_graph(model, tri_graph, x, y) {
   x = ((typeof x === "undefined") ? 0 : x);
   y = ((typeof y === "undefined") ? 0 : y);
@@ -754,12 +798,120 @@ function _splat_debug_tri_graph(model, tri_graph, x, y) {
 
 }
 
+//DEBUG
+var debug_shift = [0,0];
+
+function contour_tri_graph(model, tri_graph) {
+
+  // Count edges.  2 == internal, 1 == external.
+  //
+  var edge_count = {};
+  for (var tri_ind in tri_graph) {
+
+    var e0 = _norm_edge2( model.vert2d[tri_ind][0], model.vert2d[tri_ind][1] );
+    var e1 = _norm_edge2( model.vert2d[tri_ind][1], model.vert2d[tri_ind][2] );
+    var e2 = _norm_edge2( model.vert2d[tri_ind][2], model.vert2d[tri_ind][0] );
+
+    if (!(e0 in edge_count)) { edge_count[e0] = 1; }
+    else { edge_count[e0]+=1; }
+
+    if (!(e1 in edge_count)) { edge_count[e1] = 1; }
+    else { edge_count[e1]+=1; }
+
+    if (!(e2 in edge_count)) { edge_count[e2] = 1; }
+    else { edge_count[e2]+=1; }
+
+  }
+
+  var vert_edge = {};
+  var vert_val = {};
+  for (var tri_ind in tri_graph) {
+
+    for (var edge_ind=0; edge_ind<3; edge_ind++) {
+      var e = _norm_edge2( model.vert2d[tri_ind][edge_ind], model.vert2d[tri_ind][(edge_ind+1)%3] );
+      if (edge_count[e]==1) {
+        var u = _norm_vert2( model.vert2d[tri_ind][edge_ind] );
+        var v = _norm_vert2( model.vert2d[tri_ind][(edge_ind+1)%3] );
+
+        vert_val[u] = model.vert2d[tri_ind][edge_ind];
+        vert_val[v] = model.vert2d[tri_ind][(edge_ind+1)%3];
+
+        if (!(u in vert_edge)) { vert_edge[u] = {}; }
+        vert_edge[u][v] = model.vert2d[tri_ind][(edge_ind+1)%3];
+
+        if (!(v in vert_edge)) { vert_edge[v] = {}; }
+        vert_edge[v][u] = model.vert2d[tri_ind][edge_ind];
+      }
+
+    }
+
+  }
+
+  var vert_seen = {};
+  var max_n = model.vert2d.length;
 
 
+  var norm_vert;
+  for (var v in vert_edge) {
+    norm_vert = v;
+    break;
+  }
+
+  scale=100000;
+
+  if (norm_vert in vert_seen) { return; }
+  vert_seen[norm_vert] = true;
+
+  var clip_path = [];
+  var tv = vert_val[norm_vert];
+  clip_path.push({ X: Math.floor(tv[0]*scale+0.5), Y: Math.floor(tv[1]*scale+0.5) });
+
+  var cur_path = [ vert_val[norm_vert] ];
+  var cur_norm_vert = norm_vert;
+
+  var count=0;
+  while (true) {
+    if (count>max_n) { console.log("ERROR!!! max_n exceed vert2d.length"); break; }
+
+    var last_v = ".";
+    for (var norm_u in vert_edge[cur_norm_vert]) {
+      if (norm_u in vert_seen) { continue; }
+      vert_seen[norm_u] = true;
+
+      var tv = vert_val[norm_u];
+      clip_path.push({ X: Math.floor(tv[0]*scale+0.5), Y: Math.floor(tv[1]*scale+0.5) });
+
+      cur_path.push( vert_edge[cur_norm_vert][norm_u] );
+      last_v = norm_u;
+      break;
+    }
+    if (last_v == ".") { break; }
+
+    cur_norm_vert = last_v;
+
+    count++;
+  }
+  if (count>max_n) { return;}
+
+  var tv = vert_val[norm_vert];
+  clip_path.push({ X: Math.floor(tv[0]*scale+0.5), Y: Math.floor(tv[1]*scale+0.5) });
+  cur_path.push( vert_val[norm_vert] );
+
+  console.log( norm_vert, ">>>", clip_path, ClipperLib.SelfIntersects(clip_path) );
+  _splat_debug_path(model, cur_path, debug_shift[0], debug_shift[1]);
+  //debug_shift[0] += 1000;
+  //debug_shift[1] += 1000;
+
+  console.log("---------------------------------------");
+
+
+  //console.log(edge_count);
+  //console.log(vert_edge);
+
+}
 
 function do_complete_unfold() {
   var section = choose_polygon_sections(g_pepacat_model);
-
   var model = g_pepacat_model;
   var tri_graph;
 
@@ -767,7 +919,43 @@ function do_complete_unfold() {
     tri_graph = cut_tri_section(model, section[s_ind]);
     unfold_tri_graph(model, tri_graph);
     _splat_debug_tri_graph(model, tri_graph, 1000*s_ind, 1000*s_ind);
+
+    debug_shift[0] = 1000*s_ind;
+    debug_shift[1] = 1000*s_ind;
+
+    contour_tri_graph(model, tri_graph);
   }
 
+  return;
 
+  var vert_seen = {};
+  var max_n = model.vert2d.length;
+
+  for (var norm_vert in vert_edge) {
+    console.log(">>>",norm_vert);
+
+    if (norm_vert in vert_seen) { continue; }
+    vert_seen[norm_vert] = true;
+
+    var cur_path = [];
+    var cur_norm_vert = norm_vert;
+
+    var count=0;
+    while (true) {
+      if (count>max_n) { console.log("ERROR!!! max_n exceed vert2d.length"); break; }
+
+      for (var norm_u in vert_edge[cur_norm_vert]) {
+        if (norm_u in vert_seen) { continue; }
+        vert_seen[norm_u] = true;
+      }
+
+
+      count++;
+    }
+    if (count>max_n) { break;}
+
+  }
+
+  console.log(edge_count);
+  console.log(vert_edge);
 }
