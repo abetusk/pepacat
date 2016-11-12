@@ -61,6 +61,7 @@ function onMouseUp( e ) {
 }
 
 function onMouseWheel( delta ) {
+  g_redraw_3d=true;
 
   if (delta>0) {
     g_threeD_state.cameraR -= 0.125;
@@ -190,7 +191,26 @@ function init_threeD_window() {
   //loader.load( './models/david_low_poly.stl', function ( geometry ) {
   //loader.load( './models/david_low_poly_1024.stl', function ( geometry ) {
     var verts = geometry.attributes.position.array;
+    var norms = geometry.attributes.normal.array;
+
     var n = verts.length;
+
+    var __verts = [];
+    var __norms = [];
+
+    for (var ind=0; ind<n; ind+=9) {
+      __verts.push( [ [ verts[ind+0], verts[ind+1], verts[ind+2] ],
+                      [ verts[ind+3], verts[ind+4], verts[ind+5] ],
+                      [ verts[ind+6], verts[ind+7], verts[ind+8] ] ] );
+      __norms.push( [ norms[ind+0], norms[ind+1], norms[ind+2] ] );
+    }
+
+    g_pepacat_model.LoadModel(__verts, __norms);
+    g_pepacat_model.init_flag = true;
+
+    //console.log(">>> verts:", verts.length, "norms:", norms.length);
+    //console.log(norms);
+
 
     var rr = Math.random();
 
@@ -211,7 +231,7 @@ function init_threeD_window() {
     cent[1] /= m;
     cent[2] /= m;
 
-    g_pepacat_model.vert_raw = verts;
+    //g_pepacat_model.vert_raw = verts;
 
     for (var ind=0; ind<n; ind+=9) {
 
@@ -251,9 +271,9 @@ function init_threeD_window() {
 
       var tri_mesh = new THREE.Mesh( tri_geom, tri_mat );
 
-      g_pepacat_model.vert3d.push( [ verts[ind+0], verts[ind+1], verts[ind+2] ] );
-      g_pepacat_model.vert3d.push( [ verts[ind+3], verts[ind+4], verts[ind+5] ] );
-      g_pepacat_model.vert3d.push( [ verts[ind+6], verts[ind+7], verts[ind+8] ] );
+      //g_pepacat_model.vert3d.push( [ verts[ind+0], verts[ind+1], verts[ind+2] ] );
+      //g_pepacat_model.vert3d.push( [ verts[ind+3], verts[ind+4], verts[ind+5] ] );
+      //g_pepacat_model.vert3d.push( [ verts[ind+6], verts[ind+7], verts[ind+8] ] );
 
       //david
       var s = .10800;
@@ -287,8 +307,8 @@ function init_threeD_window() {
       //tri_mesh.receiveShadow = true;
 
       tri_mesh._data = { raw_ind: ind, tri_ind : Math.floor(ind/9), type:"tri" };
-      g_pepacat_model.tri_mesh.push( tri_mesh );
-      g_pepacat_model.tri_geom.push( tri_geom );
+      //g_pepacat_model.tri_mesh.push( tri_mesh );
+      //g_pepacat_model.tri_geom.push( tri_geom );
 
       g_scene.add( tri_mesh );
 
@@ -296,6 +316,8 @@ function init_threeD_window() {
       //TESTING
       // fooling around with lines
       //
+
+      /*
 
       var l_u = [verts[ind+0], verts[ind+1], verts[ind+2]];
       var l_v = [verts[ind+3], verts[ind+4], verts[ind+5]];
@@ -347,6 +369,10 @@ function init_threeD_window() {
         line.scale.set( ss,ss,ss );
         g_scene.add(line);
       }
+      */
+
+      g_redraw_3d=true;
+
 
       /*
       var line_mat = new THREE.LineBasicMaterial({ color:0x000000 });
@@ -372,7 +398,7 @@ function init_threeD_window() {
 
     }
 
-    pepacat_init( g_pepacat_model );
+    //pepacat_init( g_pepacat_model );
 
 
     //DEBUG

@@ -1,5 +1,8 @@
 body {
   padding-top: 50px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
 }
 .pepacat-template {
   /* padding: 40px 15px; */

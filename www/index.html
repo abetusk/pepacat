@@ -22,6 +22,11 @@
     <script src="js/lib/bleepsixRender.js"></script>
     <script src="js/lib/clipper_unminified.js"></script>
     <script src="bootstrap/js/bootstrap.min.js"></script>
+    <script src="js/lib/pixi.js"></script>
+
+    <script src="js/lib/sylvester.js"></script>
+    <script src="js/lib/numeric.js"></script>
+    <script src="js/lib/clipper.js"></script>
 
     <!-- threeD window -->
     <script src="js/three/three.js"></script>
@@ -32,11 +37,18 @@
 
     <script src="js/threeD.js"></script>
     <script src="js/twoD.js"></script>
-    <script src="js/pepacat_lib.js"></script>
+    <!-- <script src="js/pepacat_lib.js"></script> -->
+    <script src="js/pepacat.js"></script>
+
 
 
     <script>
 
+		var g_pepacat_model = {};
+		var g_world = {};
+
+
+    /*
     var g_pepacat_model = {
 
       // array of arrays
@@ -81,6 +93,7 @@
       //
       jointri : {}
     }
+    */
 
   
 
@@ -89,10 +102,16 @@
         $('[data-toggle="tooltip"]').tooltip();
       });
 
-      init_threeD_window();
-      init_twoD_window();
-      animate();
+    	g_pepacat_model = new PepacatModel();
 
+      init_twoD_window();
+      init_threeD_window();
+
+console.log(">>>", g_world);
+
+    	g_world.pepacatModel = g_pepacat_model;
+
+      animate();
     });
 
     </script>
@@ -153,9 +172,10 @@
 
           <button type="button" class="btn btn-default btn-lg unfold"
             data-toggle="tooltip" data-placement="bottom" title="Unfold model"
-            onclick='do_complete_unfold();' >
-            <span class="glyphicon glyphicon-star"> unfold</span>
+            onclick='g_pepacat_model.HeuristicUnfold();' >
+            <span class="glyphicon glyphicon-star"></span>Unfold
           </button>
+          <!-- onclick='do_complete_unfold();' > -->
 
 
         </div>
