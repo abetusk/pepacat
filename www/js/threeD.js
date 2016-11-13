@@ -16,6 +16,11 @@ var g_threeD_state = {
   mouseinit : false,
   mousedown : false,
 
+  tri_idx : -1,
+
+  scale : 1.0,
+  pos : [0,0,0],
+
   //DEBUG
   //firstmousedown : false,
   firstmousedown : true,
@@ -37,6 +42,25 @@ var g_threeD_state = {
   starty : 0
 
 };
+
+function recolor_tri3d() {
+  var tri_mesh = g_pepacat_model.tri_mesh_3d;
+  var tri_geom = g_pepacat_model.tri_geom_3d;
+  for (var gname in g_pepacat_model.trigroup2d) {
+
+    var r = Math.floor(128*Math.random() + 64);
+    var g = Math.floor(128*Math.random() + 64);
+    var b = Math.floor(128*Math.random() + 64);
+    var group_color = "rgb(" + r + "," + g + "," + b +")";
+
+    //console.log(gname, g_pepacat_model.trigroup2d[gname]);
+
+    for (var tri_idx in g_pepacat_model.trigroup2d[gname].tri_idx_map) {
+      tri_mesh[tri_idx].material.color.set(group_color);
+      tri_geom[tri_idx].colorsNeedUpdate = true;
+    }
+  }
+}
 
 function onMouseDown( e ) {
   g_redraw_3d=true;
@@ -128,6 +152,29 @@ function _emit_line( u, v ) {
   return line;
 }
 
+function _jitter() {
+  var f = 2.5;
+  var S = g_threeD_state.scale;
+  var pos = g_threeD_state.pos;
+  var tri_mesh = g_pepacat_model.tri_mesh_3d;
+  var tri_geom = g_pepacat_model.tri_geom_3d;
+  for (var gname in g_pepacat_model.trigroup2d) {
+    var jx = Math.random()*S*f;
+    var jy = Math.random()*S*f;
+    var jz = Math.random()*S*f;
+    jy=pos[1];
+
+    var trimap = g_pepacat_model.trigroup2d[gname].tri_idx_map;
+    for (var tri_idx in trimap) {
+
+      tri_mesh[tri_idx].position.set(jx, jy, jz);
+      tri_geom[tri_idx].verticesNeedUpdate = true;
+
+
+    }
+  }
+}
+
 
 function r() { return Math.random()*0.5 + 0.25; }
 function init_threeD_window() {
@@ -205,9 +252,6 @@ function init_threeD_window() {
       __norms.push( [ norms[ind+0], norms[ind+1], norms[ind+2] ] );
     }
 
-    g_pepacat_model.LoadModel(__verts, __norms);
-    g_pepacat_model.init_flag = true;
-
     //console.log(">>> verts:", verts.length, "norms:", norms.length);
     //console.log(norms);
 
@@ -217,19 +261,58 @@ function init_threeD_window() {
     var cent = [0,0,0];
     var m = 1;
 
+    var _max = [0,0,0];
+    var _min = [0,0,0];
+
 
     for (var ind=0; ind<n; ind+=9) {
+
+      if (ind==0)  {
+        _max[0] = verts[ind];
+        _max[1] = verts[ind+1];
+        _max[2] = verts[ind+2];
+        _min[0] = verts[ind];
+        _min[1] = verts[ind+1];
+        _min[2] = verts[ind+2];
+      }
 
       cent[0] += verts[ind+0] + verts[ind+3] + verts[ind+6];
       cent[1] += verts[ind+1] + verts[ind+4] + verts[ind+7];
       cent[2] += verts[ind+2] + verts[ind+5] + verts[ind+8];
       m+=3;
 
+      if (_max[0] < verts[ind]) { _max[0] = verts[ind]; }
+      if (_max[0] < verts[ind+3]) { _max[0] = verts[ind+3]; }
+      if (_max[0] < verts[ind+6]) { _max[0] = verts[ind+6]; }
+
+      if (_max[1] < verts[ind+1]) { _max[1] = verts[ind+1]; }
+      if (_max[1] < verts[ind+4]) { _max[1] = verts[ind+4]; }
+      if (_max[1] < verts[ind+7]) { _max[1] = verts[ind+7]; }
+
+      if (_max[2] < verts[ind+2]) { _max[2] = verts[ind+2]; }
+      if (_max[2] < verts[ind+5]) { _max[2] = verts[ind+5]; }
+      if (_max[2] < verts[ind+8]) { _max[2] = verts[ind+8]; }
+
+      if (_min[0] > verts[ind]) { _min[0] = verts[ind]; }
+      if (_min[0] > verts[ind+3]) { _min[0] = verts[ind+3]; }
+      if (_min[0] > verts[ind+6]) { _min[0] = verts[ind+6]; }
+
+      if (_min[1] > verts[ind+1]) { _min[1] = verts[ind+1]; }
+      if (_min[1] > verts[ind+4]) { _min[1] = verts[ind+4]; }
+      if (_min[1] > verts[ind+7]) { _min[1] = verts[ind+7]; }
+
+      if (_min[2] > verts[ind+2]) { _min[2] = verts[ind+2]; }
+      if (_min[2] > verts[ind+5]) { _min[2] = verts[ind+5]; }
+      if (_min[2] > verts[ind+8]) { _min[2] = verts[ind+8]; }
+
     }
 
     cent[0] /= m;
     cent[1] /= m;
     cent[2] /= m;
+
+    //console.log("cent...", cent);
+    //console.log("max:", _max, "min:", _min);
 
     //g_pepacat_model.vert_raw = verts;
 
@@ -276,6 +359,7 @@ function init_threeD_window() {
       //g_pepacat_model.vert3d.push( [ verts[ind+6], verts[ind+7], verts[ind+8] ] );
 
       //david
+      /*
       var s = .10800;
       var sx = s;
       var sy = s;
@@ -283,16 +367,21 @@ function init_threeD_window() {
 
       var r = (Math.random() + (ya*ya/100.0))*s*3;
       r = 0;
+      */
 
-
-      tri_mesh.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
+      //tri_mesh.position.set( -cent[0], -cent[1], -cent[2] );
+      //tri_mesh.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
       //tri_mesh.rotation.set( 0, 0, 0 );
 
       //bunny
-      var s = .00800;
+      //var s = .00800;
+      var s = 0.5/(((_max[0] - _min[0])/2.0 + (_max[1] - _min[1])/2.0 + (_max[2] - _min[2])/2.0 )/3.0);
       var sx = s;
       var sy = s;
       var sz = s;
+
+      g_threeD_state.scale = s;
+      g_threeD_state.pos = [0, -0.65, 0];
 
       //tri_mesh.position.set( 0, - 0.37, - 0.6 );
       //tri_mesh.position.set( -0.1, - 0.37, - 0.0 );
@@ -300,6 +389,13 @@ function init_threeD_window() {
 
       //bunny
       tri_mesh.position.set( -0.0, - 0.65, - 0.0 );
+      //tri_mesh.position.set( -cent[0]*s, -cent[1]*s, -cent[2]*s);
+      /*
+      tri_mesh.position.set(
+      (_max[0] - _min[0])*s/2.0,
+                             (_max[1] - _min[1])*s/2.0,
+                             (_max[2] - _min[2])*s/2.0 );
+                             */
       tri_mesh.rotation.set( - Math.PI / 2, 0, 0 );
 
       tri_mesh.scale.set( sz,sy,sz );
@@ -309,6 +405,10 @@ function init_threeD_window() {
       tri_mesh._data = { raw_ind: ind, tri_ind : Math.floor(ind/9), type:"tri" };
       //g_pepacat_model.tri_mesh.push( tri_mesh );
       //g_pepacat_model.tri_geom.push( tri_geom );
+
+      g_pepacat_model.tri_mesh_3d.push(tri_mesh);
+      g_pepacat_model.tri_geom_3d.push(tri_geom);
+
 
       g_scene.add( tri_mesh );
 
@@ -486,6 +586,14 @@ function init_threeD_window() {
     }
     */
 
+    g_pepacat_model.LoadModel(__verts, __norms);
+    g_pepacat_model.init_flag = true;
+    g_pepacat_model.HeuristicUnfold();
+    recolor_tri3d();
+    _jitter();
+
+
+
   });
 
 
@@ -615,10 +723,21 @@ function render() {
 
   var first = true;
 
+  if (intersects.length==0) {
+    if (g_threeD_state.tri_idx != -1) {
+      //console.log(">>clearing highlight");
+      g_world.clearHighlight();
+    }
+  }
+
+  var hit = false;
+
   for (var i=0; i<intersects.length; i++) {
     if (intersects[i].object.ignore) { continue; }
+
     intersects[i].object.orig_color =
       intersects[i].object.material.color.getHex();
+
     if (first)
     {
       intersects[i].object.material.color.set(0xff0000);
@@ -627,12 +746,43 @@ function render() {
       var geom = x.geometry;
 
       if (g_threeD_state.mousedown) {
-        if (intersects[i].object._data.type == "tri")
-          console.log("tri>>>", intersects[i].object._data.tri_ind);
+        if (intersects[i].object._data.type == "tri") {
+          var tri_idx = intersects[i].object._data.tri_ind;
+          //console.log("tri>>>", tri_idx);
+
+          if (g_threeD_state.tri_idx != tri_idx) {
+            g_world.updateHighlight(tri_idx);
+            g_world.draw_highlight=true;
+          }
+
+          g_threeD_state.tri_idx = tri_idx;
+        }
+
+        hit = true;
+      } else if (intersects[i].object._data.type == "tri") {
+        var tri_idx = intersects[i].object._data.tri_ind;
+        //console.log("tri>>>", tri_idx);
+
+        if (g_threeD_state.tri_idx != tri_idx) {
+          g_world.updateHighlight(tri_idx);
+          g_world.draw_highlight=true;
+        }
+
+        g_threeD_state.tri_idx = tri_idx;
+
+        hit = true;
       }
 
     }
+
     first = false;
+  }
+
+  if (!hit) {
+    if (g_threeD_state.tri_idx != -1) {
+      //console.log(">>clearing highlight (nothing hit?)");
+      g_world.clearHighlight();
+    }
   }
 
   //

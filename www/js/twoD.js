@@ -48,6 +48,13 @@ function world(canvas_param) {
 
   this.pepacatModel = { init_flag:false };
 
+  this.boundary_highlight = [];
+  this.geom_highlight = [];
+  this.draw_highlight = false;
+  this.tri_idx_highlight = -1;
+  this.geom_highlight_tri = null; //new PIXI.Graphics();
+  this.geom_highlight_tri_init = false;
+
   this.state = '';
 }
 
@@ -67,7 +74,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
   stage.interactive = true;
   stage.hitArea = new PIXI.Rectangle(0, 0, this.width, this.height);
   stage.buttonMode = true;
-  stage.defaultCursor = "url(cursor.png) 3 2, auto";
+  stage.defaultCursor = "url(img/cursor-glue.png) 3 2, auto";
 
   this.stage = stage;
 
@@ -298,6 +305,8 @@ world.prototype.drawGrid = function() {
   }
 
   var alpha = 0.0625;
+  var color = 0x777777;
+  var lwidth = 2;
 
   var M = this.transform;
 
@@ -314,7 +323,7 @@ world.prototype.drawGrid = function() {
 
     ele.clear();
     ele.renderable=true;
-    ele.lineStyle(2, 0x777777, alpha);
+    ele.lineStyle(lwidth, color, alpha);
     ele.moveTo(x1t, y1t);
     ele.lineTo(x2t, y2t);
     idx++;
@@ -332,7 +341,7 @@ world.prototype.drawGrid = function() {
 
     ele.clear();
     ele.renderable=true;
-    ele.lineStyle(2, 0x777777, alpha);
+    ele.lineStyle(lwidth, color, alpha);
 
     ele.moveTo(x1t, y1t);
     ele.lineTo(x2t, y2t);
@@ -424,6 +433,103 @@ world.prototype.w2D = function(x,y) {
   return [tx,ty];
 }
 
+world.prototype.clearHighlight = function() {
+  for (var ii=0, il=this.geom_highlight.length; ii<il; ii++) {
+    var ele = this.geom_highlight[ii];
+    ele.clear();
+    ele.renderable=false;
+  }
+
+  var ele = this.geom_highlight_tri;
+  ele.clear();
+  ele.renderable=false;
+
+  this.draw_highlight=false;
+}
+
+world.prototype.updateHighlight = function(tri_idx) {
+  var gn = this.pepacatModel.TriGroupName(tri_idx);
+  var group = this.pepacatModel.trigroup2d[gn];
+  var boundary = this.pepacatModel.TriGroupBoundary(group);
+
+  if (this.geom_highlight.length < boundary.length) {
+    for (var ii=this.geom_highlight.length, il=boundary.length; ii<il; ii++) {
+      var geom_ele = new PIXI.Graphics();
+      geom_ele.clear();
+      this.geom_highlight.push(geom_ele);
+      this.stage.addChild(this.geom_highlight[ii]);
+    }
+  }
+
+  this.tri_idx_highlight = tri_idx;
+  this.boundary_highlight = boundary;
+}
+
+world.prototype.drawHighlight = function() {
+  var boundary = this.boundary_highlight;
+
+  var line_width = 3;
+  var line_color = 0x770000;
+  var line_alpha = 0.5;
+  var fill_color = 0x330000;
+
+  for (var ii=1, il=boundary.length; ii<il; ii++) {
+    var ele = this.geom_highlight[ii];
+
+    var v0 = this.w2D(boundary[ii-1][0], boundary[ii-1][1]);
+    var v1 = this.w2D(boundary[ii][0], boundary[ii][1]);
+
+    ele.clear();
+    ele.renderable=true;
+    ele.lineStyle(line_width, line_color, line_alpha);
+    ele.moveTo(v0[0], v0[1]);
+    ele.lineTo(v1[0], v1[1]);
+  }
+
+  for (var ii=boundary.length, il=this.geom_highlight.length; ii<il; ii++) {
+    var ele = this.geom_highlight[ii];
+    ele.clear();
+    ele.renderable=false;
+  }
+
+  if (this.tri_idx_highlight>=0) {
+
+    if (!this.geom_highlight_tri_init) {
+
+      this.geom_highlight_tri = new PIXI.Graphics();
+      this.geom_highlight_tri.clear();
+      this.geom_highlight_tri.renderable = false;
+      this.stage.addChild(this.geom_highlight_tri);
+      this.geom_highlight_tri_init = true;
+    }
+
+
+    var tri_idx = this.tri_idx_highlight;
+
+
+    var tri = this.pepacatModel.TriRealized2D(tri_idx);
+
+
+    var v0 = this.w2D(tri[0][0], tri[0][1]);
+    var v1 = this.w2D(tri[1][0], tri[1][1]);
+    var v2 = this.w2D(tri[2][0], tri[2][1]);
+
+    //console.log(">>>", tri_idx, JSON.stringify(v0), JSON.stringify(v1), JSON.stringify(v2) );
+
+    this.geom_highlight_tri.clear();
+    this.geom_highlight_tri.renderable=true;
+    this.geom_highlight_tri.beginFill(fill_color);
+    this.geom_highlight_tri.lineStyle(line_width, line_color, line_alpha);
+    this.geom_highlight_tri.moveTo(v0[0], v0[1]);
+    this.geom_highlight_tri.lineTo(v1[0], v1[1]);
+    this.geom_highlight_tri.lineTo(v2[0], v2[1]);
+    //this.geom_highlight_tri.lineTo(v0[0], v0[1]);
+    this.geom_highlight_tri.endFill();
+  }
+
+
+}
+
 world.prototype.drawGeometry = function() {
   var tg2d = this.pepacatModel.trigroup2d;
 
@@ -450,7 +556,10 @@ world.prototype.drawGeometry = function() {
 
   }
 
-  line_alpha = 0.5;
+  var line_alpha = 0.5;
+  var line_width = 1;
+  var line_color = 0x777777;
+
 
   line_count=0;
   for (var gname in tg2d) {
@@ -465,7 +574,7 @@ world.prototype.drawGeometry = function() {
       var ele = this.geom[line_count];
       ele.clear();
       ele.renderable=true;
-      ele.lineStyle(2, 0x777777, line_alpha);
+      ele.lineStyle(line_width, line_color, line_alpha);
       ele.moveTo(v0[0], v0[1]);
       ele.lineTo(v1[0], v1[1]);
       line_count++;
@@ -473,7 +582,7 @@ world.prototype.drawGeometry = function() {
       ele = this.geom[line_count];
       ele.clear();
       ele.renderable=true;
-      ele.lineStyle(2, 0x777777, line_alpha);
+      ele.lineStyle(line_width, line_color, line_alpha);
       ele.moveTo(v1[0], v1[1]);
       ele.lineTo(v2[0], v2[1]);
       line_count++;
@@ -481,7 +590,7 @@ world.prototype.drawGeometry = function() {
       ele = this.geom[line_count];
       ele.clear();
       ele.renderable=true;
-      ele.lineStyle(2, 0x777777, line_alpha);
+      ele.lineStyle(line_width, line_color, line_alpha);
       ele.moveTo(v2[0], v2[1]);
       ele.lineTo(v0[0], v0[1]);
       line_count++;
@@ -496,6 +605,10 @@ world.prototype.animate = function() {
 
   if (this.pepacatModel.init_flag) {
     this.drawGeometry();
+  }
+
+  if (this.draw_highlight) {
+    this.drawHighlight();
   }
 
   /*
