@@ -109,7 +109,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
     self.mouse_down = false;
     self.mouse_drag = false;
 
-    console.log(">mouseup", e.which, xy[0], xy[1]);
+    //console.log(">mouseup", e.which, xy[0], xy[1]);
   });
 
   $(canvas_id).mousedown( function(e) {
@@ -122,7 +122,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
     self.mouse_drag = true;
     var world_coord = self.devToWorld(x,y);
 
-    console.log(">mousedown", e.which, xy[0], xy[1] );
+    //console.log(">mousedown", e.which, xy[0], xy[1] );
   });
 
   $(canvas_id).mouseover( function(e) {
@@ -130,12 +130,12 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
 
   $(canvas_id).mouseenter( function(e) {
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
-    console.log(">mouseenter", xy[0], xy[1] );
+    //console.log(">mouseenter", xy[0], xy[1] );
   });
 
   $(canvas_id).mouseleave( function(e) {
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
-    console.log("mouseleave", xy[0], xy[1] );
+    //console.log("mouseleave", xy[0], xy[1] );
   });
 
   $(canvas_id).mousemove( function(e) {
@@ -153,7 +153,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
 
 
   $(canvas_id).mousewheel( function(e, delta, deltax, deltay) {
-    console.log("mousewheel:", delta, deltax, deltay);
+    //console.log("mousewheel:", delta, deltax, deltay);
 
     self.adjustZoom(self.mouse_cur_x, self.mouse_cur_y, delta);
 
@@ -362,6 +362,10 @@ var g_graphicElement = [];
 var g_geom = [];
 
 function init_debug() {
+
+  //DISABLE
+  return;
+
   for (var ii=0; ii<10; ii++) {
     var geom_ele = {};
     var ele = new PIXI.Graphics();
@@ -454,20 +458,6 @@ world.prototype.drawGeometry = function() {
     for (var tri_idx in gr.tri_idx_map) {
       tri2d = gr.tri_idx_map[tri_idx].tri2d;
 
-      /*
-      T = gr.tri_idx_map[tri_idx].T;
-
-      T = [[1,0,0],[0,1,0],[0,0,1]];
-
-      var u0 = this.T2D(T, tri2d[0][0], tri2d[0][1]);
-      var u1 = this.T2D(T, tri2d[1][0], tri2d[1][1]);
-      var u2 = this.T2D(T, tri2d[2][0], tri2d[2][1]);
-
-      var v0 = this.w2D(u0[0], u0[1]);
-      var v1 = this.w2D(u1[0], u1[1]);
-      var v2 = this.w2D(u2[0], u2[1]);
-      */
-
       var v0 = this.w2D(tri2d[0][0], tri2d[0][1]);
       var v1 = this.w2D(tri2d[1][0], tri2d[1][1]);
       var v2 = this.w2D(tri2d[2][0], tri2d[2][1]);
@@ -508,6 +498,7 @@ world.prototype.animate = function() {
     this.drawGeometry();
   }
 
+  /*
   g_ticker++;
   if (g_ticker>=g_TICK) {
     if (tf) { tf = false; }
@@ -554,6 +545,7 @@ world.prototype.animate = function() {
     }
 
   }
+  */
 
   this.drawGrid();
 

@@ -72,7 +72,7 @@ function clip_union(rop_pgns, pgns) {
   var clipType = ClipperLib.ClipType.ctUnion;
 
   //clpr.AddPolygons( pgns, subjPolyType );
-  clpr.AddPaths( pgns, subjPolyType );
+  clpr.AddPaths( pgns, subjPolyType, true );
   clpr.Execute(clipType, rop_pgns, fillType, fillType);
 }
 
@@ -903,26 +903,16 @@ PepacatModel.prototype.TriGroupClipArea = function(group) {
   var boundary = this.TriGroupBoundary(group);
   var S = this.info.premul;
 
-  //console.log("#>>> boundary:", JSON.stringify(boundary));
-
   var clip_boundary = [];
-  for (var i=0; i<boundary.length; i++) {
+  for (var i=0, il=boundary.length; i<il; i++) {
     clip_boundary.push({X: Math.round(S*boundary[i][0]), Y: Math.round(S*boundary[i][1])});
-
-    //console.log("#b#", boundary[i][0], boundary[i][1]);
   }
 
   var union_boundary = [];
+
   clip_union(union_boundary, [clip_boundary]);
 
   if (union_boundary.length!=1) { return 0.0; }
-
-  /*
-  for (var ii=0; ii<union_boundary[0].length; ii++) {
-    console.log("#ub#", union_boundary[0][ii].X/S, union_boundary[0][ii].Y/S);
-  }
-  console.log("#ub#", union_boundary[0][0].X/S, union_boundary[0][0].Y/S);
-  */
 
   var area = clip_area(union_boundary);
   area /= (S*S);
@@ -1550,11 +1540,8 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
   }
 
   var tg;
-
   var px = 0, py = 0;
-
   var max_x = 1500;
-
   for (var src_idx in this.tri_adjmap) {
     if (this.tri_idx_visited[src_idx]) { continue; }
 
@@ -1568,12 +1555,39 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
     tg = this._heur_unfold2(info, gn, src_idx);
     //this.PrintTriGroup(tg, px, py);
 
-    px+=200;
+    var T = _mT(px, py);
 
+    var group = this.trigroup2d[tg];
+    for (var tri_idx in group.tri_idx_map) {
+
+      var _tri2d = group.tri_idx_map[tri_idx].tri2d;
+      for (var ii=0, il=_tri2d.length; ii<il; ii++) {
+        _tri2d[ii][0] += px;
+        _tri2d[ii][1] += py;
+      }
+
+      continue;
+
+      //group.tri_idx_map[tri_idx].T = numeric.dot(group.tri_idx_map[tri_idx].T, T);
+      group.tri_idx_map[tri_idx].T = numeric.dot(T, group.tri_idx_map[tri_idx].T);
+      var _tri2d = numeric.dot(group.tri_idx_map[tri_idx].tri2d, group.tri_idx_map[tri_idx].T);
+      //var _tri2d = numeric.dot(group.tri_idx_map[tri_idx].T, group.tri_idx_map[tri_idx].tri2d);
+      group.tri_idx_map[tri_idx].tri2d = _tri2d;
+
+      /*
+      group.tri_idx_map[tri_idx].T = numeric.dot(T, group.tri_idx_map[tri_idx].T);
+      var _tri2d = numeric.dot(group.tri_idx_map[tri_idx].T, group.tri_idx_map[tri_idx].tri2d);
+      group.tri_idx_map[tri_idx].tri2d = _tri2d;
+      */
+    }
+
+    px+=400;
     if (px >= max_x) {
       py+=200;
       px = 0;
     }
+
+
 
   }
 
