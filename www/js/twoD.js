@@ -6,6 +6,7 @@ function world(canvas_param) {
   }
 
   this.init_flag=true;
+  this.tool = null;
 
   this.canvas = document.getElementById(this.canvas_name);
 
@@ -55,7 +56,11 @@ function world(canvas_param) {
   this.geom_highlight_tri = null; //new PIXI.Graphics();
   this.geom_highlight_tri_init = false;
 
+  this.geom_bbox = [];
+
   this.state = '';
+
+  this.tool;
 }
 
 world.prototype.init = function(canvas, w, h, bgcolor) {
@@ -80,6 +85,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
 
   this.geom = [];
   this.grid = [];
+
 
   /*
   for (var ii=0; ii<10; ii++) {
@@ -113,6 +119,11 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
   $(canvas_id).mouseup( function(e) {
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
 
+    if (self.tool) {
+      self.tool.mouseup(e.which, xy[0], xy[1]);
+      return;
+    }
+
     self.mouse_down = false;
     self.mouse_drag = false;
 
@@ -125,11 +136,19 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
     var x = xy[0];
     var y = xy[1];
 
+    if (self.tool) {
+      self.tool.mousedown(e.which, x, y);
+      return;
+    }
+
+
     self.mouse_down = true;
     self.mouse_drag = true;
     var world_coord = self.devToWorld(x,y);
 
-    //console.log(">mousedown", e.which, xy[0], xy[1] );
+
+
+    console.log(">mousedown", e.which, xy[0], xy[1], world_coord.x, world_coord.y );
   });
 
   $(canvas_id).mouseover( function(e) {
@@ -150,6 +169,11 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
     var x = xy[0];
     var y = xy[1];
 
+    if (self.tool) {
+      self.tool.mousemove(e.which, x, y);
+      return;
+    }
+
     if (self.mouse_drag) {
       self.mouseDrag(x - self.mouse_cur_x, y - self.mouse_cur_y);
     }
@@ -161,6 +185,11 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
 
   $(canvas_id).mousewheel( function(e, delta, deltax, deltay) {
     //console.log("mousewheel:", delta, deltax, deltay);
+
+    if (self.tool) {
+      self.tool.mousewheel(delta);
+      return;
+    }
 
     self.adjustZoom(self.mouse_cur_x, self.mouse_cur_y, delta);
 
@@ -274,6 +303,60 @@ world.prototype.canvas_coords_from_global = function(x,y) {
   return [ x - rl - scrollx, y - rt - scrolly ];
 }
 
+
+world.prototype.clearBBox = function() {
+  for (var i=0, il=this.geom_bbox.length; i<il; i++) {
+    var ele = this.geom_bbox[i];
+    ele.clear();
+    ele.renderable=false;
+  }
+}
+
+world.prototype.drawBBox = function() {
+  var count=0;
+  for (var gn in this.pepacatModel.trigroup2d) {
+    count++;
+  }
+
+  for (var i=this.geom_bbox.length; i<count; i++) {
+    var ele = new PIXI.Graphics();
+    ele.clear();
+    this.geom_bbox.push(ele);
+    this.stage.addChild(this.geom_bbox[i]);
+  }
+
+  var line_alpha = 0.5;
+  var line_width = 1;
+  var line_color = 0x773333;
+
+  count=0;
+  for (var gn in this.pepacatModel.trigroup2d) {
+    var group = this.pepacatModel.trigroup2d[gn];
+
+    var bbox = group.bbox;
+
+    var v0 = this.w2D(bbox.lx, bbox.ly);
+    var v1 = this.w2D(bbox.ux, bbox.uy);
+
+
+    var ele = this.geom_bbox[count];
+    ele.clear();
+    ele.renderable=true;
+    ele.lineStyle(line_width, line_color, line_alpha);
+    ele.moveTo(v0[0], v0[1]);
+    ele.lineTo(v0[0], v1[1]);
+    ele.lineTo(v1[0], v1[1]);
+    ele.lineTo(v1[0], v0[1]);
+    ele.lineTo(v0[0], v0[1]);
+    count++;
+  }
+
+  for (var i=count, il=this.geom_bbox.length; i<il; i++) {
+    var ele = this.geom_bbox[i];
+    ele.clear();
+    ele.renderable=false;
+  }
+}
 
 world.prototype.drawGrid = function() {
 
@@ -661,6 +744,8 @@ world.prototype.animate = function() {
   */
 
   this.drawGrid();
+
+  this.drawBBox();
 
   this.renderer.render(stage);
   //requestAnimationFrame( this.animate );

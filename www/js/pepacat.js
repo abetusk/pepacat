@@ -607,6 +607,30 @@ PepacatModel.prototype.TriGroupSelfIntersects = function(tri_group) {
   return ((Math.abs(maxarea-cliparea) < (2.0/this.info.premul)) ? false : true);
 }
 
+PepacatModel.prototype.TriGroupTranslate = function(group, dx, dy) {
+  var T = _mT(dx, dy);
+  for (var tri_idx in group.tri_idx_map) {
+		group.tri_idx_map[tri_idx].T = numeric.dot(T, group.tri_idx_map[tri_idx].T);
+		var _tri2d = numeric.dot(this.tri2d[tri_idx], numeric.transpose(group.tri_idx_map[tri_idx].T));
+		group.tri_idx_map[tri_idx].tri2d = _tri2d;
+  }
+	group.bbox = this.TriGroupBoundingBox(group);
+}
+
+PepacatModel.prototype.TriGroupRotate = function(group, px, py, rad) {
+  var aT = _mT(-px, -py);
+  var bT = _mT(px, py);
+	var R = _mA(rad);
+
+  for (var tri_idx in group.tri_idx_map) {
+		group.tri_idx_map[tri_idx].T = numeric.dot(bT, numeric.dot(R, numeric.dot(aT, group.tri_idx_map[tri_idx].T)));
+		var _tri2d = numeric.dot(this.tri2d[tri_idx], numeric.transpose(group.tri_idx_map[tri_idx].T));
+		group.tri_idx_map[tri_idx].tri2d = _tri2d;
+  }
+	group.bbox = this.TriGroupBoundingBox(group);
+}
+
+
 PepacatModel.prototype.TriGroupName = function(tri_idx) {
   return this.tri_idx_trigroup_lookback[tri_idx];
 }
@@ -1131,6 +1155,8 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   this.TriGroupUnfold(mov_trigroup_name);
   cliparea = this.TriGroupClipArea(mov_trigroup_name);
 
+  this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
+
   return [fix_trigroup_name, mov_trigroup_name];
 }
 
@@ -1191,6 +1217,8 @@ PepacatModel.prototype.JoinTriangle = function(fix_tri_idx, mov_tri_idx, debug) 
   // Finally, remove the 'mov' triangle group entry from the gropu map
   //
   delete this.trigroup2d[mov_trigroup_name];
+
+  this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
 
   return fix_trigroup_name;
 }
@@ -1539,6 +1567,7 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
       px = 0;
     }
 
+    group.bbox = this.TriGroupBoundingBox(group);
 
 
   }
