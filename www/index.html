@@ -40,6 +40,7 @@
     <!-- <script src="js/pepacat_lib.js"></script> -->
     <script src="js/pepacat.js"></script>
 
+    <script src='js/toolNav2d.js'></script>
     <script src='js/toolMove2d.js'></script>
 
 
@@ -112,7 +113,8 @@ console.log(">>>", g_world);
 
     	g_world.pepacatModel = g_pepacat_model;
 
-      g_world.tool = new toolMove2d(0, 0, g_world, g_pepacat_model);
+      g_world.tool = new toolNav2d(0, 0, g_world, g_pepacat_model);
+      //g_world.tool = new toolMove2d(0, 0, g_world, g_pepacat_model);
 
       animate();
     });

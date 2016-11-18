@@ -59,8 +59,6 @@ function world(canvas_param) {
   this.geom_bbox = [];
 
   this.state = '';
-
-  this.tool;
 }
 
 world.prototype.init = function(canvas, w, h, bgcolor) {

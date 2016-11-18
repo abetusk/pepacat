@@ -26,7 +26,6 @@ toolMove2d.prototype.mousedown = function(button, mousex, mousey) {
   //
   if (this.state == "move") { return; }
 
-
   this.mouse_down = true;
   this.mouse_drag = true;
 
@@ -52,13 +51,12 @@ toolMove2d.prototype.mousedown = function(button, mousex, mousey) {
     console.log(">>> got hit", hit_group);
 
     this.state = "move";
-    this.selected_group_name = gn;
+    this.selected_group_name = hit_group;
 
     return;
   }
 
   var rb = 10;
-
   var hit_group = null;
   var hit = false;
   for (var gn in pm.trigroup2d) {
@@ -83,9 +81,9 @@ toolMove2d.prototype.mousedown = function(button, mousex, mousey) {
     console.log(">>> got rotate hit", hit_group);
 
     this.state = "rotate";
-    this.selected_group_name = gn;
+    this.selected_group_name = hit_group;
 
-    var bbox = this.pepacat_model.trigroup2d[gn].bbox;
+    var bbox = this.pepacat_model.trigroup2d[hit_group].bbox;
 
     this.anchor = [ (bbox.lx + bbox.ux)/2.0, (bbox.ly + bbox.uy)/2.0 ];
 
@@ -93,7 +91,6 @@ toolMove2d.prototype.mousedown = function(button, mousex, mousey) {
   }
 
   console.log("toolMove2d mousedown:", x, y);
-
 }
 
 
