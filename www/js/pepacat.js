@@ -1505,7 +1505,7 @@ PepacatModel.prototype._heur_unfold2 = function(info, group_name, tri_idx) {
 
     info.cur_tri_count++;
 
-    this._heur_unfold(info, join_group_name, dst_idx);
+    this._heur_unfold2(info, join_group_name, dst_idx);
 
 
     return join_group_name;
@@ -1524,6 +1524,7 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
       "backtrack" : 1,
       "branch" : 5,
       "normal_angle_cutoff" : Math.PI/4.0,
+      //"normal_angle_cutoff" : Math.PI/8.0,
       "cur_tri_count" : 0,
       "min_tri_count_hint" : 10,
       "max_tri_count_hint" : 100,
@@ -1551,6 +1552,7 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
 
     this.tri_idx_visited[src_idx] = true;
     tg = this._heur_unfold2(info, gn, src_idx);
+    tg = this._heur_unfold2(info, tg, src_idx);
 
     var T = _mT(px, py);
 
