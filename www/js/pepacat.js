@@ -592,6 +592,39 @@ PepacatModel.prototype.Consistency = function() {
   var S = this.info.premul;
   var idx_group = {};
 
+  // test realization
+  for (var group_name in this.trigroup2d) {
+    var g = this.trigroup2d[group_name];
+
+    for (var tri_idx in g.tri_idx_map) {
+      var src_tri2d = g.tri_idx_map[tri_idx].tri2d;
+      for (var nei_idx in g.tri_idx_map[tri_idx].nei_tri_idx_map) {
+        var edge = g.tri_idx_map[tri_idx].nei_tri_idx_map[nei_idx];
+        var nei_tri2d = g.tri_idx_map[nei_idx].tri2d;
+
+        var akey = _key2d(src_tri2d[edge.src_edge[0]][0], src_tri2d[edge.src_edge[0]][1], S);
+        var bkey = _key2d(nei_tri2d[edge.dst_edge[1]][0], nei_tri2d[edge.dst_edge[1]][1], S);
+        if (akey != bkey) {
+          return {
+            error: true,
+            message: "vertex mismatch " + tri_idx + "->" + nei_idx + " (" + akey + "!=" + bkey + ")"
+          };
+        }
+
+        akey = _key2d(src_tri2d[edge.src_edge[1]][0], src_tri2d[edge.src_edge[1]][1], S);
+        bkey = _key2d(nei_tri2d[edge.dst_edge[0]][0], nei_tri2d[edge.dst_edge[0]][1], S);
+        if (akey != bkey) {
+          return {
+            error: true,
+            message: "vertex mismatch " + tri_idx + "->" + nei_idx + " (" + akey + "!=" + bkey + ")"
+          };
+        }
+
+
+      }
+    }
+  }
+
   for (var gn in this.trigroup2d) {
     var g = this.trigroup2d[gn];
 
@@ -1327,13 +1360,13 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   var fix_idx_list = this.GatherNeighbors(tri_group, fix_tri_idx);
   var nei_idx_list = this.GatherNeighbors(tri_group, mov_tri_idx);
 
-  // We've removed an edge but the triangel group still remains.
+  // We've removed an edge but the triagle group still remains.
   // Just return.
   //
   if (orig_idx_list.length === fix_idx_list.length) { return [fix_trigroup_name]; }
   if (fix_idx_list.length === 0) { return [fix_trigroup_name]; }
 
-
+  /*
   var fix_anchor_idx = parseInt(fix_idx_list[0]);
   for (var ii=0; ii<fix_idx_list.length; ii++) {
     if (fix_anchor_idx > parseInt(fix_idx_list[ii])) {
@@ -1347,10 +1380,13 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
       mov_anchor_idx = parseInt(nei_idx_list[ii]);
     }
   }
+  */
 
-  fix_trigroup_name = fix_anchor_idx;
-  mov_trigroup_name = mov_anchor_idx;
+  //fix_trigroup_name = fix_anchor_idx;
+  //mov_trigroup_name = mov_anchor_idx;
+  var new_trigroup_name = mov_tri_idx;
 
+  /*
   if (!(fix_trigroup_name in this.trigroup2d)) {
     this.trigroup2d[fix_trigroup_name] = {};
     this.trigroup2d[fix_trigroup_name].G = {};
@@ -1366,6 +1402,17 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   }
   this.trigroup2d[mov_trigroup_name].dirty = true;
   this.trigroup2d[mov_trigroup_name].anchor_tri_idx = mov_anchor_idx;
+  */
+
+  // Crate the new triangle group as necessary and update it.
+  //
+  if (!(new_trigroup_name in this.trigroup2d)) {
+    this.trigroup2d[new_trigroup_name] = {};
+    this.trigroup2d[new_trigroup_name].G = {};
+    this.trigroup2d[new_trigroup_name].tri_idx_map = {};
+  }
+  this.trigroup2d[new_trigroup_name].dirty = true;
+  this.trigroup2d[new_trigroup_name].anchor_tri_idx = move_tri_idx;
 
   for (var ii=0; ii<fix_idx_list.length; ii++) {
     var nei_idx = fix_idx_list[ii];
@@ -1897,6 +1944,7 @@ function test6() {
 
   gg.HeuristicUnfold();
 
+  /*
   console.log(">>>>>>>");
   var g = gg.trigroup2d[105];
   for (var tri_idx in g.tri_idx_map) {
@@ -1914,23 +1962,22 @@ function test6() {
     }
   }
   console.log(">>>>>>>");
+  */
 
   //gg.PrintTriGroup(105);
 
   // BUG: somethings failing when these two tri groups
   // are joined by this triangle...
   //
-  gg.JoinTriangle(257, 205, true);
-
-  var gr = gg.trigroup2d[105];
-
-  console.log("????", JSON.stringify(gg.trigroup2d[105].tri_idx_map[177]));
-
-  //console.log("group 26", gr);
-  gg.TriGroupBoundary(gr);
-
-
+  gg.JoinTriangle(68, 150, true);
   var r = gg.Consistency();
+  console.log(JSON.stringify(r));
+
+
+
+  gg.SplitTriangle(68, 150, true);
+  r = gg.Consistency();
+  console.log(JSON.stringify(r));
 
 
   if (!r.error) {
