@@ -1366,7 +1366,6 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   if (orig_idx_list.length === fix_idx_list.length) { return [fix_trigroup_name]; }
   if (fix_idx_list.length === 0) { return [fix_trigroup_name]; }
 
-  /*
   var fix_anchor_idx = parseInt(fix_idx_list[0]);
   for (var ii=0; ii<fix_idx_list.length; ii++) {
     if (fix_anchor_idx > parseInt(fix_idx_list[ii])) {
@@ -1380,13 +1379,11 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
       mov_anchor_idx = parseInt(nei_idx_list[ii]);
     }
   }
-  */
 
-  //fix_trigroup_name = fix_anchor_idx;
-  //mov_trigroup_name = mov_anchor_idx;
+  fix_trigroup_name = fix_anchor_idx;
+  mov_trigroup_name = mov_anchor_idx;
   var new_trigroup_name = mov_tri_idx;
 
-  /*
   if (!(fix_trigroup_name in this.trigroup2d)) {
     this.trigroup2d[fix_trigroup_name] = {};
     this.trigroup2d[fix_trigroup_name].G = {};
@@ -1402,8 +1399,8 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   }
   this.trigroup2d[mov_trigroup_name].dirty = true;
   this.trigroup2d[mov_trigroup_name].anchor_tri_idx = mov_anchor_idx;
-  */
 
+  /*
   // Crate the new triangle group as necessary and update it.
   //
   if (!(new_trigroup_name in this.trigroup2d)) {
@@ -1413,6 +1410,7 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   }
   this.trigroup2d[new_trigroup_name].dirty = true;
   this.trigroup2d[new_trigroup_name].anchor_tri_idx = move_tri_idx;
+  */
 
   for (var ii=0; ii<fix_idx_list.length; ii++) {
     var nei_idx = fix_idx_list[ii];
