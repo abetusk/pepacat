@@ -724,7 +724,7 @@ world.prototype.updateHighlight = function(tri_idx) {
   var group = this.pepacatModel.trigroup2d[gn];
   var boundary = this.pepacatModel.TriGroupBoundary(group);
 
-  console.log(">>>>", gn, group.anchor_tri_idx, typeof(boundary));
+  //console.log(">>>>", gn, group.anchor_tri_idx, typeof(boundary));
 
   if ((typeof this.geom_highlight === "undefined") || (typeof boundary === "undefined")) {
     console.log("updateHighlight >>>", this.geom_highlight, boundary, "group name (boudnary)", gn);

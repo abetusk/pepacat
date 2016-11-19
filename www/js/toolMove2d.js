@@ -142,5 +142,6 @@ toolMove2d.prototype.mousewheel = function(delta, x, y) {
   x = ((typeof x === "undefined") ? this.mouse_cur_x : x );
   y = ((typeof y === "undefined") ? this.mouse_cur_y : y );
   this.world.adjustZoom(x, y, delta);
+  return false;
 }
 

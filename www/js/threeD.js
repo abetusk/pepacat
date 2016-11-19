@@ -610,8 +610,6 @@ function init_threeD_window() {
     recolor_tri3d();
     _jitter();
 
-
-
   });
 
 

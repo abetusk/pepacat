@@ -121,6 +121,31 @@ console.log(">>>", g_world);
       animate();
     });
 
+function nav_button() {
+  console.log("nav button");
+
+  g_world.tool = new toolNav2d(0, 0, g_world, g_pepacat_model);
+}
+
+function move_button() {
+  console.log("move button");
+
+  g_world.tool = new toolMove2d(0, 0, g_world, g_pepacat_model);
+}
+
+function cut_button() {
+  console.log("cut button");
+
+  g_world.tool = new toolCutGlue2d(0, 0, g_world, g_pepacat_model);
+}
+
+function glue_button() {
+  console.log("glue button");
+
+  g_world.tool = new toolCutGlue2d(0, 0, g_world, g_pepacat_model);
+}
+
+
     </script>
 
   </head>
@@ -201,22 +226,22 @@ console.log(">>>", g_world);
           </canvas>
 
           <button type="button" class="btn btn-default btn-lg tool"
-            data-toggle="tooltip" data-placement="right" title="View">
+            data-toggle="tooltip" data-placement="right" title="View" onclick='nav_button();'>
             <span class="glyphicon glyphicon-eye-open" style="width:25px; height:25px;"> </span>
           </button>
 
           <button type="button" class="btn btn-default btn-lg tool tool-u"
-            data-toggle="tooltip" data-placement="right" title="Move/Rotate">
+            data-toggle="tooltip" data-placement="right" title="Move/Rotate" onclick='move_button();'>
             <span class="glyphicon glyphicon-hand-up" style="width:25px; height:25px;"></span>
           </button>
 
           <button type="button" class="btn btn-default btn-lg tool tool-uu"
-            data-toggle="tooltip" data-placement="right" title="Cut edges">
+            data-toggle="tooltip" data-placement="right" title="Cut edges" onclick='cut_button();'>
             <span class="glyphicon glyphicon-scissors" style="width:25px; height:25px;"></span>
           </button>
 
           <button type="button" class="btn btn-default btn-lg tool tool-uuu"
-            data-toggle="tooltip" data-placement="right" title="Glue edges">
+            data-toggle="tooltip" data-placement="right" title="Glue edges" onclick='glue_button();'>
             <span class="glyphicon glyphicon-baby-formula" style="width:25px; height:25px;"></span>
           </button>
 
