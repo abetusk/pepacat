@@ -18,8 +18,11 @@ var g_threeD_state = {
 
   tri_idx : -1,
 
+  tri_orig_color : {},
+
   scale : 1.0,
   pos : [0,0,0],
+  focus : false,
 
   //DEBUG
   //firstmousedown : false,
@@ -65,6 +68,8 @@ function recolor_tri3d() {
 function onMouseDown( e ) {
   g_redraw_3d=true;
 
+  g_threeD_state.focus = true;
+
   g_threeD_state.firstmousedown = true;
   g_threeD_state.mousedown = true;
 
@@ -78,6 +83,8 @@ function onMouseDown( e ) {
 function onMouseUp( e ) {
   g_redraw_3d=true;
 
+  g_threeD_state.focus = true;
+
   g_threeD_state.mousedown = false;
 
   g_threeD_state.origx = g_threeD_state.mousex;
@@ -86,6 +93,8 @@ function onMouseUp( e ) {
 
 function onMouseWheel( delta ) {
   g_redraw_3d=true;
+
+  g_threeD_state.focus = true;
 
   if (delta>0) {
     g_threeD_state.cameraR -= 0.125;
@@ -103,6 +112,8 @@ function onMouseWheel( delta ) {
 
 function onMouseMove( e ) {
   g_redraw_3d=true;
+
+  g_threeD_state.focus = true;
 
   g_containerWidth = g_container.clientWidth;
   g_containerHeight = g_container.clientHeight;
@@ -206,6 +217,13 @@ function init_threeD_window() {
     return false;
   });
 
+  $(g_container).mouseenter( function(ev) {
+    g_threeD_state.focus = true;
+  });
+
+  $(g_container).mouseleave( function(ev) {
+    g_threeD_state.focus = false;
+  });
 
   g_container.addEventListener( 'mouseup', onMouseUp, false );
   g_container.addEventListener( 'resize', onWindowResize, false );
@@ -691,8 +709,45 @@ function animate() {
 
 }
 
-function render() {
+function threeD_unhighlight_tri(tri_idx) {
+  var tri_l = [];
+  for (var tri_idx in g_threeD_state.tri_orig_color) {
+    tri_l.push(tri_idx);
+  }
+  for (var ii=0, il=tri_l.length; ii<il; ii++) {
+    delete g_threeD_state.tri_orig_color[tri_l[ii]];
+  }
+	g_redraw_3d=true;
+}
 
+function threeD_highlight_tri(tri_idx) {
+  var hi_color_hex  = 0xff0000;
+  var alt_color_hex = 0x331111;
+
+  if (g_threeD_state.tri_idx != tri_idx) {
+    g_world.updateHighlight(tri_idx);
+    g_world.draw_highlight=true;
+  }
+
+  g_threeD_state.tri_orig_color[tri_idx] = 
+    g_pepacat_model.tri_mesh_3d[tri_idx].material.color.getHex();
+  g_threeD_state.tri_idx = tri_idx;
+  g_pepacat_model.tri_mesh_3d[tri_idx].material.color.set(hi_color_hex);
+
+  var tri_group_name = g_pepacat_model.TriGroupName(tri_idx);
+  for (var idx in g_pepacat_model.trigroup2d[tri_group_name].tri_idx_map) {
+    if (idx == tri_idx) { continue; }
+
+    g_threeD_state.tri_orig_color[idx] = 
+      g_pepacat_model.tri_mesh_3d[idx].material.color.getHex();
+    g_threeD_state.idx = idx;
+    g_pepacat_model.tri_mesh_3d[idx].material.color.set(alt_color_hex);
+  }
+
+	g_redraw_3d=true;
+}
+
+function render() {
   var timer = Date.now() * 0.0005;
 
   if (!g_threeD_state.firstmousedown) {
@@ -717,36 +772,63 @@ function render() {
 
   //pick testing
   //
+  if (g_threeD_state.focus) {
 
-  g_raycaster.setFromCamera( g_mouse, g_camera );
-  var intersects = g_raycaster.intersectObjects( g_scene.children );
+    g_raycaster.setFromCamera( g_mouse, g_camera );
+    var intersects = g_raycaster.intersectObjects( g_scene.children );
 
-  var first = true;
+    var first = true;
 
-  if (intersects.length==0) {
-    if (g_threeD_state.tri_idx != -1) {
-      //console.log(">>clearing highlight");
-      g_world.clearHighlight();
+    if (intersects.length==0) {
+      if (g_threeD_state.tri_idx != -1) {
+        //console.log(">>clearing highlight");
+        g_world.clearHighlight();
+      }
     }
-  }
 
-  var hit = false;
+    var hit = false;
+    var hit_tri = -1;
 
-  for (var i=0; i<intersects.length; i++) {
-    if (intersects[i].object.ignore) { continue; }
 
-    intersects[i].object.orig_color =
-      intersects[i].object.material.color.getHex();
+    for (var i=0; i<intersects.length; i++) {
+      if (intersects[i].object.ignore) { continue; }
 
-    if (first)
-    {
-      intersects[i].object.material.color.set(0xff0000);
+      intersects[i].object.orig_color =
+        intersects[i].object.material.color.getHex();
 
-      var x = intersects[i].object;
-      var geom = x.geometry;
+      if (first) {
+        //intersects[i].object.material.color.set(0xff0000);
 
-      if (g_threeD_state.mousedown) {
-        if (intersects[i].object._data.type == "tri") {
+        var x = intersects[i].object;
+        var geom = x.geometry;
+
+        if (g_threeD_state.mousedown) {
+
+          if (intersects[i].object._data.type == "tri") {
+            hit_tri = intersects[i].object._data.tri_ind;
+            hit=true;
+
+            /*
+            var tri_idx = intersects[i].object._data.tri_ind;
+            //console.log("tri>>>", tri_idx);
+
+            if (g_threeD_state.tri_idx != tri_idx) {
+              g_world.updateHighlight(tri_idx);
+              g_world.draw_highlight=true;
+            }
+
+            g_threeD_state.tri_idx = tri_idx;
+            */
+
+          }
+
+          //hit = true;
+
+        } else if (intersects[i].object._data.type == "tri") {
+          hit_tri = intersects[i].object._data.tri_ind;
+          hit=true;
+
+          /*
           var tri_idx = intersects[i].object._data.tri_ind;
           //console.log("tri>>>", tri_idx);
 
@@ -756,43 +838,49 @@ function render() {
           }
 
           g_threeD_state.tri_idx = tri_idx;
+
+          hit = true;
+          */
+
         }
 
-        hit = true;
-      } else if (intersects[i].object._data.type == "tri") {
-        var tri_idx = intersects[i].object._data.tri_ind;
-        //console.log("tri>>>", tri_idx);
-
-        if (g_threeD_state.tri_idx != tri_idx) {
-          g_world.updateHighlight(tri_idx);
-          g_world.draw_highlight=true;
-        }
-
-        g_threeD_state.tri_idx = tri_idx;
-
-        hit = true;
       }
 
+      first = false;
     }
 
-    first = false;
-  }
-
-  if (!hit) {
-    if (g_threeD_state.tri_idx != -1) {
-      //console.log(">>clearing highlight (nothing hit?)");
-      g_world.clearHighlight();
+    if (hit) {
+      threeD_highlight_tri(hit_tri);
+    } else {
+      if (g_threeD_state.tri_idx != -1) {
+        //console.log(">>clearing highlight (nothing hit?)");
+        g_world.clearHighlight();
+      }
     }
-  }
 
-  //
-  //pick testing
+    //
+    //pick testing
+
+  }
 
   g_renderer.render( g_scene, g_camera );
 
-  for (var i=0; i<intersects.length; i++) {
-    if (intersects[i].object.ignore) { continue; }
-    intersects[i].object.material.color.setHex( intersects[i].object.orig_color );
+  // set colors back to original.
+  // inifficient but proof of concept...
+  //
+  for (var tri_idx in g_threeD_state.tri_orig_color) {
+    var c = g_threeD_state.tri_orig_color[tri_idx];
+    g_pepacat_model.tri_mesh_3d[tri_idx].material.color.set(c);
   }
+
+  if (g_threeD_state.focus) {
+
+    for (var i=0; i<intersects.length; i++) {
+      if (intersects[i].object.ignore) { continue; }
+      intersects[i].object.material.color.setHex( intersects[i].object.orig_color );
+    }
+
+  }
+
 
 }

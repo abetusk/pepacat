@@ -96,8 +96,7 @@ toolNav2d.prototype.mousemove = function(button, mousex, mousey) {
       for (var tri_idx in group.tri_idx_map) {
         var tri = group.tri_idx_map[tri_idx].tri2d;
         if (_pnt_in_tri( [x,y], tri[0], tri[1], tri[2])) {
-          console.log(">> hit tri", tri_idx);
-
+          threeD_highlight_tri(tri_idx);
           this.world.updateHighlight(tri_idx);
           this.world.draw_highlight=true;
           hit_tri = true;
@@ -106,11 +105,13 @@ toolNav2d.prototype.mousemove = function(button, mousex, mousey) {
       }
 
       if (!hit_tri) {
+        threeD_unhighlight_tri();
         this.world.clearHighlight();
         this.world.draw_highlight=false;
       }
 
     } else {
+      threeD_unhighlight_tri();
       this.world.clearHighlight();
       this.world.draw_highlight=false;
     }
