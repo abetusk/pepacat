@@ -59,6 +59,9 @@ function world(canvas_param) {
   this.geom_edge_highlight_init = false;
   this.geom_edge_highlight = null;
 
+  this.geom_tri_name_init = false;
+  this.geom_tri_name = null;
+
   this.geom_bbox = [];
 
   this.focus = false;
@@ -524,6 +527,71 @@ world.prototype.w2D = function(x,y) {
   return [tx,ty];
 }
 
+function _pm_sqr(x) { return x * x; }
+function _pm_dist2(v, w) { return _sqr(v[0] - w[0]) + _sqr(v[1] - w[1]); }
+function _pm_dist(v, w) { return Math.sqrt(_sqr(v[0] - w[0]) + _sqr(v[1] - w[1])); }
+
+world.prototype.drawTriName = function(render) {
+  render = ( (typeof render === "undefined") ? false : render );
+
+  if (!this.geom_tri_name_init) {
+    this.geom_tri_name = new PIXI.Graphics();
+    this.geom_tri_name.clear();
+    this.geom_tri_name.renderable = false;
+    this.stage.addChild(this.geom_tri_name);
+    this.geom_tri_name_init = true;
+  }
+
+  if (!render) {
+    this.geom_tri_name.clear();
+    this.geom_tri_name.renderable = false;
+    return;
+  }
+
+  var line_width = 1;
+  var line_color = 0x555555;
+  var line_alpha = 0.5;
+
+
+  this.geom_tri_name.clear();
+  this.geom_tri_name.lineStyle(line_width, line_color, line_alpha);
+  this.geom_tri_name.renderable = true;
+
+  for (var gn in this.pepacatModel.trigroup2d) {
+    var group = this.pepacatModel.trigroup2d[gn];
+    for (var tri_idx in group.tri_idx_map) {
+      var tri = group.tri_idx_map[tri_idx].tri2d;
+      var cx = (tri[0][0] + tri[1][0] + tri[2][0])/3.0;
+      var cy = (tri[0][1] + tri[1][1] + tri[2][1])/3.0;
+      var ds = Math.min( _pm_dist(tri[0], tri[1]), _pm_dist(tri[1], tri[2]), _pm_dist(tri[0], tri[2]) ) / 10.0;
+      var num_vec = VecNum(tri_idx, cx, cy, ds, ds);
+
+      for (var ii=0, il=num_vec.length; ii<il; ii++) {
+        if (num_vec[ii].length==0) { continue; }
+        num_vec[ii] = this.w2D(num_vec[ii][0], num_vec[ii][1]);
+      }
+
+      var move_to_flag = true;
+      for (var ii=0, il=num_vec.length; ii<il; ii++) {
+        if (num_vec[ii].length==0) {
+          move_to_flag = true;
+          continue;
+        }
+
+        if (move_to_flag) {
+          this.geom_tri_name.moveTo(num_vec[ii][0], num_vec[ii][1]);
+          move_to_flag = false;
+          continue;
+        }
+
+        this.geom_tri_name.lineTo(num_vec[ii][0], num_vec[ii][1]);
+        move_to_flag = false;
+      }
+
+    }
+  }
+}
+
 world.prototype.clearHighlight = function() {
   for (var ii=0, il=this.geom_highlight.length; ii<il; ii++) {
     var ele = this.geom_highlight[ii];
@@ -655,6 +723,12 @@ world.prototype.updateHighlight = function(tri_idx) {
   var gn = this.pepacatModel.TriGroupName(tri_idx);
   var group = this.pepacatModel.trigroup2d[gn];
   var boundary = this.pepacatModel.TriGroupBoundary(group);
+
+  console.log(">>>>", gn, group.anchor_tri_idx, typeof(boundary));
+
+  if ((typeof this.geom_highlight === "undefined") || (typeof boundary === "undefined")) {
+    console.log("updateHighlight >>>", this.geom_highlight, boundary, "group name (boudnary)", gn);
+  }
 
   if (this.geom_highlight.length < boundary.length) {
     for (var ii=this.geom_highlight.length, il=boundary.length; ii<il; ii++) {
@@ -806,6 +880,8 @@ world.prototype.drawGeometry = function() {
 }
 
 world.prototype.animate = function() {
+
+  this.drawTriName(true);
 
   if (this.pepacatModel.init_flag) {
     this.drawGeometry();

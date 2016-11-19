@@ -663,6 +663,104 @@ PepacatModel.prototype.FindEdge = function(src_tri_idx, dst_tri_idx) {
 
 }
 
+function VecNum(n, x, y, dx, dy) {
+  n = Math.round(n);
+  x = ((typeof x === "undefined") ? 0 : x);
+  y = ((typeof y === "undefined") ? 0 : y);
+
+  dx = ((typeof dx === "undefined") ? 1 : dx);
+  dy = ((typeof dy === "undefined") ? -1 : -dy);
+
+  var rvec = [];
+
+  var dxw = 1.5*dx;
+  var dyw = 1.5*dy;
+
+  while (true) {
+    var v = n%10;
+    n/=10;
+
+    if (v == 0) {
+      rvec.push([x, y]);
+      rvec.push([x+dx, y]);
+      rvec.push([x+dx, y+dy]);
+      rvec.push([x,y+dy]);
+      rvec.push([x,y]);
+    } else if (v==1) {
+      rvec.push([x,y]);
+      rvec.push([x,y+dy]);
+    } else if (v==2) {
+      rvec.push([x+dx, y]);
+      rvec.push([x,y]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x+dx, y+dy/2]);
+      rvec.push([x+dx, y+dy]);
+      rvec.push([x,y+dy]);
+    } else if (v==3) {
+      rvec.push([x,y]);
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy]);
+      rvec.push([x,y+dy]);
+      rvec.push([]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x+dx,y+dy/2]);
+    } else if (v==4) {
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy]);
+      rvec.push([x, y+dy/2]);
+      rvec.push([x+dx,y+dy/2]);
+    } else if (v==5) {
+      rvec.push([x,y]);
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy/2]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x,y+dy]);
+      rvec.push([x+dx,y+dy]);
+    } else if (v==6) {
+      rvec.push([x,y]);
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy/2]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x,y+dy]);
+      rvec.push([x,y]);
+    } else if (v==7) {
+      rvec.push([x,y]);
+      rvec.push([x+dx,y+dy]);
+      rvec.push([x,y+dy]);
+    } else if (v==8) {
+      rvec.push([x, y]);
+      rvec.push([x+dx, y]);
+      rvec.push([x+dx, y+dy]);
+      rvec.push([x,y+dy]);
+      rvec.push([x, y]);
+      rvec.push([]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x+dx,y+dy/2]);
+    } else if (v==9) {
+      rvec.push([x,y]);
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy/2]);
+      rvec.push([x,y+dy/2]);
+      rvec.push([x,y+dy]);
+      rvec.push([x+dx,y+dy]);
+      rvec.push([]);
+      rvec.push([x+dx,y]);
+      rvec.push([x+dx,y+dy]);
+    }
+
+
+    rvec.push([]);
+    x -= dxw;
+
+
+    n = Math.floor(n);
+
+    if (n<1) { break; }
+  }
+
+  return rvec;
+}
+
 
 function PrintNum(n, x, y) {
   n = Math.round(n);
@@ -991,7 +1089,16 @@ PepacatModel.prototype.TriGroupBoundary = function(group) {
       vertex_map[vert_key]["cur"] = [tri[ii][0], tri[ii][1]];
       vertex_map[vert_key]["visited"] = false;
 
-      if (!cur_key) { cur_key = vert_key; }
+      //DEBUG
+      //console.log("## vertex_map++", vert_key);
+
+      if (!cur_key) {
+
+        cur_key = vert_key;
+
+        //DEBUG
+        //console.log(">>>cur_key", cur_key, tri_idx);
+      }
 
       count++;
     }
@@ -1004,7 +1111,10 @@ PepacatModel.prototype.TriGroupBoundary = function(group) {
   var cur_count = 0;
   while (cur_count < count) {
 
-    if (!(cur_key in vertex_map)) { console.log("### ERROR, key not found", cur_key); return; }
+    //DEBUG
+    //console.log(cur_count,"/", count, cur_key);
+
+    if (!(cur_key in vertex_map)) { console.log("### ERROR, key not found", cur_key, vertex_map, group.anchor_tri_idx); return; }
     if (vertex_map[cur_key].visited) { console.log("### ERROR, already visited", cur_key); break; }
 
     var ent = vertex_map[cur_key];
@@ -1047,6 +1157,10 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   if (fix_trigroup_name !== mov_trigroup_name) { return [fix_trigroup_name]; }
 
   if (this.trigroup2d[fix_trigroup_name].dirty) {
+    this.visited = {};
+    for (var tri_idx in this.trigroup2d[fix_trigroup_name]) {
+      this.visited[tri_idx] = false;
+    }
     this.TriGroupUnfold(fix_trigroup_name);
   }
 
@@ -1149,13 +1263,18 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
     }
   }
 
+  this.visited = {};
+  for (var tri_idx in this.trigroup2d[fix_trigroup_name]) { this.visited[tri_idx] = false; }
   this.TriGroupUnfold(fix_trigroup_name);
   var cliparea = this.TriGroupClipArea(fix_trigroup_name);
 
+  this.visited = {};
+  for (var tri_idx in this.trigroup2d[mov_trigroup_name]) { this.visited[tri_idx] = false; }
   this.TriGroupUnfold(mov_trigroup_name);
   cliparea = this.TriGroupClipArea(mov_trigroup_name);
 
   this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
+  this.trigroup2d[mov_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[mov_trigroup_name]);
 
   return [fix_trigroup_name, mov_trigroup_name];
 }
@@ -1183,6 +1302,9 @@ PepacatModel.prototype.JoinTriangle = function(fix_tri_idx, mov_tri_idx, debug) 
     this.TriGroupUnfold(mov_trigroup_name);
   }
 
+  var fix_anchor_tri_idx = this.trigroup2d[fix_trigroup_name].anchor_tri_idx;
+  var mov_anchor_tri_idx = this.trigroup2d[mov_trigroup_name].anchor_tri_idx;
+
   var fix_tri = this.trigroup2d[fix_trigroup_name].tri_idx_map[fix_tri_idx].tri2d;
   var mov_tri = this.tri2d[mov_tri_idx];
 
@@ -1201,6 +1323,25 @@ PepacatModel.prototype.JoinTriangle = function(fix_tri_idx, mov_tri_idx, debug) 
 
   this.TriGroupUnfold(mov_trigroup_name, debug);
 
+  // The fixed group name might change (to the moved group)
+  // since we take the least triangle index as the name of the
+  // triangle group.
+  //
+  var fix_group = this.trigroup2d[fix_trigroup_name];
+  var mov_group = this.trigroup2d[mov_trigroup_name];
+
+  for (var tri_idx in mov_group.tri_idx_map) {
+    fix_group.tri_idx_map[tri_idx] = mov_group.tri_idx_map[tri_idx];
+  }
+
+  fix_group.tri_idx_map[fix_tri_idx].nei_tri_idx_map[mov_tri_idx] = 
+    { "src_edge" : [fix_edge[0], fix_edge[1]], "dst_edge": [mov_edge[0], mov_edge[1]] };
+  fix_group.tri_idx_map[mov_tri_idx].nei_tri_idx_map[fix_tri_idx] =
+    { "src_edge" : [mov_edge[0], mov_edge[1]], "dst_edge": [fix_edge[0], fix_edge[1]] };
+  fix_group.bbox = this.TriGroupBoundingBox(fix_group);
+
+
+
   // Copy over newly realized triangle group to the one that was held in position
   //
   for (var tri_idx in this.trigroup2d[mov_trigroup_name].tri_idx_map) {
@@ -1210,13 +1351,55 @@ PepacatModel.prototype.JoinTriangle = function(fix_tri_idx, mov_tri_idx, debug) 
     this.tri_idx_trigroup_lookback[tri_idx] = fix_trigroup_name;
   }
 
-  this.trigroup2d[fix_trigroup_name].tri_idx_map[fix_tri_idx].nei_tri_idx_map[mov_tri_idx] = { "src_edge" : [fix_edge[0], fix_edge[1]], "dst_edge": [mov_edge[0], mov_edge[1]] };
-  this.trigroup2d[fix_trigroup_name].tri_idx_map[mov_tri_idx].nei_tri_idx_map[fix_tri_idx] = { "src_edge" : [mov_edge[0], mov_edge[1]], "dst_edge": [fix_edge[0], fix_edge[1]] };
+  this.trigroup2d[fix_trigroup_name].tri_idx_map[fix_tri_idx].nei_tri_idx_map[mov_tri_idx] =
+    { "src_edge" : [fix_edge[0], fix_edge[1]], "dst_edge": [mov_edge[0], mov_edge[1]] };
+  this.trigroup2d[fix_trigroup_name].tri_idx_map[mov_tri_idx].nei_tri_idx_map[fix_tri_idx] =
+    { "src_edge" : [mov_edge[0], mov_edge[1]], "dst_edge": [fix_edge[0], fix_edge[1]] };
   this.trigroup2d[fix_trigroup_name].dirty = false;
+
+  this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
+
+  delete this.trigroup2d[mov_trigroup_name];
+
+  if (mov_anchor_tri_idx < fix_anchor_tri_idx) {
+    delete this.trigroup2d[fix_trigroup_name];
+
+    this.trigroup2d[mov_anchor_tri_idx] = fix_group;
+    this.trigroup2d[mov_anchor_tri_idx].anchor_tri_idx = mov_anchor_tri_idx;
+
+    for (var tri_idx in this.trigroup2d[mov_trigroup_name].tri_idx_map) {
+      this.tri_idx_trigroup_lookback[tri_idx] = mov_trigroup_name;
+    }
+
+    fix_trigroup_name = mov_trigroup_name;
+  }
+
+  return fix_trigroup_name;
+
+
 
   // Finally, remove the 'mov' triangle group entry from the gropu map
   //
-  delete this.trigroup2d[mov_trigroup_name];
+
+  //var mov_anchor_tri_idx = this.trigroup2d[mov_trigroup_name].anchor_tri_idx;
+  //var fix_anchor_tri_idx = this.trigroup2d[fix_trigroup_name].anchor_tri_idx;
+
+  if (mov_anchor_tri_idx < fix_anchor_tri_idx) {
+
+    console.log("!!!", "mov anchor", mov_anchor_tri_idx, "fix anchor", fix_anchor_tri_idx);
+
+    var fix_group = this.trigroup2d[fix_trigroup_name];
+    delete this.trigroup2d[fix_trigroup_name];
+    delete this.trigroup2d[mov_trigroup_name];
+
+    this.trigroup2d[mov_trigroup_name] = fix_group;
+    fix_group.anchor_tri_idx = mov_anchor_tri_idx;
+
+    fix_trigroup_name = mov_trigroup_name;
+  }
+  else {
+    delete this.trigroup2d[mov_trigroup_name];
+  }
 
   this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
 
