@@ -67,6 +67,49 @@ function world(canvas_param) {
   this.focus = false;
 
   this.state = '';
+
+  this.config = {
+    draw_grid : "lines",
+    draw_tri_num : true,
+    draw_bbox : true,
+    num : {
+      line_width : 1,
+      line_color : 0x555555,
+      line_alpha : 0.5
+    },
+    tri : {
+
+      line_width : 2,
+      line_color : 0x777777,
+      line_alpha : 0.5
+    },
+    highlight: {
+      line_width : 3,
+      line_color : 0x770000,
+      line_alpha : 0.5,
+      fill_color : 0x550000
+    },
+    bbox : {
+      line_width : 4,
+      line_color : 0x770000,
+      line_alpha : 0.5,
+      fill_color : 0x550000
+    },
+
+    draw_color : false
+  };
+
+  /*
+  this.config = {
+    draw_grid : "none",
+    draw_tri_num : false,
+    draw_bbox : false,
+    draw_color : false
+  };
+  */
+
+  this.geom_2d_dirty = true;
+
 }
 
 world.prototype.init = function(canvas, w, h, bgcolor) {
@@ -253,6 +296,11 @@ world.prototype.setView = function( x, y, z, cx, cy ) {
     [ 0, 0, 1 ]
   ];
 
+  this.stage.position.x = -this.view.x1*z;
+  this.stage.position.y = -this.view.y1*z;
+
+  this.stage.scale.x = z;
+  this.stage.scale.y = z;
 }
 
 world.prototype.devToWorld = function(x, y) {
@@ -336,9 +384,15 @@ world.prototype.drawBBox = function() {
     this.stage.addChild(this.geom_bbox[i]);
   }
 
+  /*
   var line_alpha = 0.5;
   var line_width = 1;
   var line_color = 0x773333;
+  */
+
+  var line_alpha = this.config.bbox.line_alpha;
+  var line_width = this.config.bbox.line_width / this.zoom;
+  var line_color = this.config.bbox.line_color;
 
   count=0;
   for (var gn in this.pepacatModel.trigroup2d) {
@@ -400,9 +454,11 @@ world.prototype.drawGrid = function() {
 
   var alpha = 0.0625;
   var color = 0x777777;
-  var lwidth = 2;
+  //var lwidth = 2;
+  var lwidth = 2.0 / ( this.zoom);
 
   var M = this.transform;
+  M = [[1,0, 0],[0,1, 0]];
 
   var idx = 0;
   for (var x=x_start; x<x_stop; x+=gridstep) {
@@ -452,12 +508,13 @@ world.prototype.drawGrid = function() {
 function init_twoD_window() {
   g_world = new world("canvas");
   init_debug();
-  requestAnimationFrame(loop2d);
+  //requestAnimationFrame(loop2d);
+  return loop2d;
 }
 
 function loop2d() {
   if (g_world.init_flag) { g_world.animate(); }
-  requestAnimationFrame(loop2d);
+  //requestAnimationFrame(loop2d);
 }
 
 
@@ -522,6 +579,10 @@ world.prototype.T2D = function(T, x,y) {
 }
 
 world.prototype.w2D = function(x,y) {
+
+  //CHANGING TO STAGE REPOS
+  return [x,y];
+
   var tx = this.transform[0][0]*x + this.transform[0][1]*y + this.transform[0][2];
   var ty = this.transform[1][0]*x + this.transform[1][1]*y + this.transform[1][2];
   return [tx,ty];
@@ -548,9 +609,11 @@ world.prototype.drawTriName = function(render) {
     return;
   }
 
-  var line_width = 1;
-  var line_color = 0x555555;
-  var line_alpha = 0.5;
+  var line_width = this.config.num.line_width / this.zoom;
+  var line_color = this.config.num.line_color;
+  var line_alpha = this.config.num.line_alpha;
+  //var line_color = 0x555555;
+  //var line_alpha = 0.5;
 
 
   this.geom_tri_name.clear();
@@ -746,10 +809,18 @@ world.prototype.updateHighlight = function(tri_idx) {
 world.prototype.drawHighlight = function() {
   var boundary = this.boundary_highlight;
 
+  /*
   var line_width = 3;
   var line_color = 0x770000;
   var line_alpha = 0.5;
   var fill_color = 0x330000;
+  */
+
+  var line_width = this.config.highlight.line_width / this.zoom;
+  var line_color = this.config.highlight.line_color;
+  var line_alpha = this.config.highlight.line_alpha;
+  var fill_color = this.config.highlight.fill_color;
+
 
   for (var ii=1, il=boundary.length; ii<il; ii++) {
     var ele = this.geom_highlight[ii];
@@ -834,10 +905,14 @@ world.prototype.drawGeometry = function() {
 
   }
 
-  var line_alpha = 0.5;
-  var line_width = 1;
-  var line_color = 0x777777;
+  //var line_alpha = 0.5;
+  //var line_width = 1;
+  //var line_color = 0x777777;
+  //var line_width = this.config.tri.line_width;
+  var line_color = this.config.tri.line_color;
+  var line_alpha = this.config.tri.line_alpha;
 
+  var line_width = this.config.tri.line_width / ( this.zoom);
 
   line_count=0;
   for (var gname in tg2d) {
@@ -881,73 +956,21 @@ world.prototype.drawGeometry = function() {
 
 world.prototype.animate = function() {
 
-  this.drawTriName(true);
+  if (this.config.draw_tri_num)     { this.drawTriName(true); }
 
   if (this.pepacatModel.init_flag) {
-    this.drawGeometry();
-  }
-
-  if (this.draw_highlight) {
-    this.drawHighlight();
-  }
-
-  //if (this.draw_edge_highlight) { this.drawEdgeHighlight(); }
-
-  /*
-  g_ticker++;
-  if (g_ticker>=g_TICK) {
-    if (tf) { tf = false; }
-    else { tf = true; }
-    g_ticker=0;
-  }
-
-  g_count += 0.125*0.125;
-  if (g_count > (2*Math.PI)) { g_count -= 2*Math.PI; }
-
-  for (var ii=0, il=g_graphicElement.length; ii<il; ii++) {
-
-    var x = g_world.width/2;
-    var y = g_world.heighth/2;
-
-    x = g_geom[ii].x;
-    y = g_geom[ii].y;
-    var ex = g_geom[ii].ex;
-    var ey = g_geom[ii].ey;
-
-    var v = [x,y,1];
-    var tx = this.transform[0][0]*v[0] + this.transform[0][1]*v[1] + this.transform[0][2]*v[2];
-    var ty = this.transform[1][0]*v[0] + this.transform[1][1]*v[1] + this.transform[1][2]*v[2];
-    x = tx;
-    y = ty;
-
-    v = [ex, ey, 1];
-    var tex = this.transform[0][0]*v[0] + this.transform[0][1]*v[1] + this.transform[0][2]*v[2];
-    var tey = this.transform[1][0]*v[0] + this.transform[1][1]*v[1] + this.transform[1][2]*v[2];
-    ex = tex;
-    ey = tey;
-
-    var ele = g_graphicElement[ii];
-
-    var count = g_count;
-    ele.clear();
-    ele.lineStyle(2, 0xff2222, 0.5);
-    ele.moveTo(x , y);
-    ele.lineTo(ex, ey);
-
-    if (!g_bool) {
-      console.log(ele.transform);
-      g_bool=true;
+    if (this.geom_2d_dirty) {
+      this.drawGeometry();
+      this.geom_2d_dirty = false;
     }
-
   }
-  */
 
-  this.drawGrid();
+  if (this.draw_highlight)          { this.drawHighlight(); }
 
-  this.drawBBox();
+  if (this.config.draw_grid == "lines") { this.drawGrid(); }
+  if (this.config.draw_bbox)            { this.drawBBox(); }
 
   this.renderer.render(stage);
-  //requestAnimationFrame( this.animate );
 }
 
 

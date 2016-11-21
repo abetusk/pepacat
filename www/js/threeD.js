@@ -695,15 +695,17 @@ function onWindowResize() {
 
 function animate() {
 
-  requestAnimationFrame( animate );
 
   if (g_redraw_3d) {
     g_redraw_3d=false;
     render();
   }
+  loop2d();
 
 
   g_stats.update();
+
+  requestAnimationFrame( animate );
 
 }
 

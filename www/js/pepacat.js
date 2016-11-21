@@ -593,7 +593,7 @@ PepacatModel.prototype.Consistency = function() {
   var S = this.info.premul;
   var idx_group = {};
 
-  S = Math.floor(this.info.premul/100);
+  //S = Math.floor(this.info.premul/100);
 
   // test realization
   for (var group_name in this.trigroup2d) {
@@ -764,26 +764,35 @@ PepacatModel.prototype.TriGroupSelfIntersects = function(tri_group) {
 }
 
 PepacatModel.prototype.TriGroupTranslate = function(group, dx, dy) {
+  var rep_idx = -1;
   var T = _mT(dx, dy);
   for (var tri_idx in group.tri_idx_map) {
+    if (rep_idx == -1) { rep_idx = tri_idx; }
 		group.tri_idx_map[tri_idx].T = numeric.dot(T, group.tri_idx_map[tri_idx].T);
 		var _tri2d = numeric.dot(this.tri2d[tri_idx], numeric.transpose(group.tri_idx_map[tri_idx].T));
 		group.tri_idx_map[tri_idx].tri2d = _tri2d;
   }
 	group.bbox = this.TriGroupBoundingBox(group);
+
+
+  this._force_joint_match(rep_idx);
 }
 
 PepacatModel.prototype.TriGroupRotate = function(group, px, py, rad) {
   var aT = _mT(-px, -py);
   var bT = _mT(px, py);
 	var R = _mA(rad);
+  var rep_idx = -1;
 
   for (var tri_idx in group.tri_idx_map) {
+    if (rep_idx == -1) { rep_idx = tri_idx; }
 		group.tri_idx_map[tri_idx].T = numeric.dot(bT, numeric.dot(R, numeric.dot(aT, group.tri_idx_map[tri_idx].T)));
 		var _tri2d = numeric.dot(this.tri2d[tri_idx], numeric.transpose(group.tri_idx_map[tri_idx].T));
 		group.tri_idx_map[tri_idx].tri2d = _tri2d;
   }
 	group.bbox = this.TriGroupBoundingBox(group);
+
+  this._force_joint_match(rep_idx);
 }
 
 
@@ -1295,10 +1304,8 @@ PepacatModel.prototype.TriGroupUnfold = function(group_name, debug) {
   // when we use vertices as keys.
   //
   var m = this.trigroup2d[group_name].tri_idx_map;
-  var visited = {};
-  for (var tri_idx in m) { visited[tri_idx] = false; }
-  this._force_joint_match(anch_tri_idx, visited);
 
+  this._force_joint_match(anch_tri_idx);
 }
 
 function _key2d(x,y,S) {

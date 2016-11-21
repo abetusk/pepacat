@@ -113,6 +113,9 @@ toolMove2d.prototype.mousemove = function(button, x, y) {
 
       var group = this.pepacat_model.trigroup2d[this.selected_group_name];
       this.pepacat_model.TriGroupTranslate(group, dx, dy);
+
+      g_world.geom_2d_dirty = true;
+
     } else if (this.state == "rotate") {
       var prv = g_world.devToWorld(this.mouse_cur_x, this.mouse_cur_y)
       var cur = g_world.devToWorld(x,y);
@@ -128,6 +131,8 @@ toolMove2d.prototype.mousemove = function(button, x, y) {
       var group = this.pepacat_model.trigroup2d[this.selected_group_name];
       this.pepacat_model.TriGroupRotate(group, this.anchor[0], this.anchor[1], ang);
 
+      g_world.geom_2d_dirty = true;
+
     } else {
       this.world.mouseDrag(x - this.mouse_cur_x, y - this.mouse_cur_y);
     }
@@ -142,6 +147,7 @@ toolMove2d.prototype.mousewheel = function(delta, x, y) {
   x = ((typeof x === "undefined") ? this.mouse_cur_x : x );
   y = ((typeof y === "undefined") ? this.mouse_cur_y : y );
   this.world.adjustZoom(x, y, delta);
+  g_world.geom_2d_dirty = true;
   return false;
 }
 
