@@ -25,8 +25,6 @@ toolCutGlue2d.prototype.mousedown = function(button, mousex, mousey) {
 
   var pm = this.pepacat_model;
 
-  console.log("toolCutGlue2d mousedown:", x, y);
-
   var hit_info = this.hitinfo(x,y);
   if ((hit_info.hit) && (hit_info.has_nei)) {
 
@@ -42,12 +40,14 @@ toolCutGlue2d.prototype.mousedown = function(button, mousex, mousey) {
     else if (hit_info.type == "cut") {
       console.log("cut:", hit_info.tri_idx, hit_info.nei_tri_idx);
 
+      /*
       var r = this.pepacat_model.Consistency();
       if (r.error) {
         console.log("CONSISTENCY ERROR:", JSON.stringify(r));
       } else {
         console.log("pre consistency ok");
       }
+      */
 
 
       this.pepacat_model.SplitTriangle(hit_info.tri_idx, hit_info.nei_tri_idx);
@@ -56,12 +56,15 @@ toolCutGlue2d.prototype.mousedown = function(button, mousex, mousey) {
       g_world.geom_2d_dirty = true;
     }
 
+    /*
     var r = this.pepacat_model.Consistency();
     if (r.error) {
       console.log("CONSISTENCY ERROR:", JSON.stringify(r));
     } else {
       console.log("consistency ok");
     }
+    */
+
   }
 
 }
@@ -224,6 +227,8 @@ toolCutGlue2d.prototype.mousemove = function(button, mousex, mousey) {
     this.world.updateHighlight(tri_idx);
     this.world.draw_highlight=true;
 
+    console.log("hit", tri_idx, hit_info.has_nei);
+
     if (hit_info.has_nei) {
       if (hit_info.type == "glue") {
         this.world.highlightGlueEdge(tri_idx, hit_info.nei_tri_idx);
@@ -236,6 +241,12 @@ toolCutGlue2d.prototype.mousemove = function(button, mousex, mousey) {
 
   }
   else {
+
+
+    //DEBUG
+    console.log(">>unighlight");
+
+
     threeD_unhighlight_tri();
     this.world.unhighlightEdge();
     this.world.clearHighlight();

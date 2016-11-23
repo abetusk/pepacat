@@ -23,9 +23,8 @@ var g_threeD_state = {
   scale : 1.0,
   pos : [0,0,0],
   focus : false,
+  dirty: false,
 
-  //DEBUG
-  //firstmousedown : false,
   firstmousedown : true,
 
   cameraR : 3.0,
@@ -56,13 +55,17 @@ function recolor_tri3d() {
     var b = Math.floor(128*Math.random() + 64);
     var group_color = "rgb(" + r + "," + g + "," + b +")";
 
-    //console.log(gname, g_pepacat_model.trigroup2d[gname]);
-
     for (var tri_idx in g_pepacat_model.trigroup2d[gname].tri_idx_map) {
       tri_mesh[tri_idx].material.color.set(group_color);
       tri_geom[tri_idx].colorsNeedUpdate = true;
     }
   }
+
+  for (var tri_idx in g_pepacat_model.tri_mesh_3d) {
+    var hc = g_pepacat_model.tri_mesh_3d[tri_idx].material.color.getHex();
+    g_threeD_state.tri_orig_color[tri_idx] = hc;
+  }
+
 }
 
 function onMouseDown( e ) {
@@ -247,14 +250,11 @@ function init_threeD_window() {
   // Binary files
 
   var material = new THREE.MeshPhongMaterial({
-    //color: 0xAAAAAA, specular: 0x111111, shininess: 200, side : THREE.DoubleSide
     color: 0xAAAAAA, specular: 0x111111, shininess: 200
   });
 
 
   loader.load( './models/Bunny-LowPoly.stl', function ( geometry ) {
-  //loader.load( './models/david_low_poly.stl', function ( geometry ) {
-  //loader.load( './models/david_low_poly_1024.stl', function ( geometry ) {
     var verts = geometry.attributes.position.array;
     var norms = geometry.attributes.normal.array;
 
@@ -269,10 +269,6 @@ function init_threeD_window() {
                       [ verts[ind+6], verts[ind+7], verts[ind+8] ] ] );
       __norms.push( [ norms[ind+0], norms[ind+1], norms[ind+2] ] );
     }
-
-    //console.log(">>> verts:", verts.length, "norms:", norms.length);
-    //console.log(norms);
-
 
     var rr = Math.random();
 
@@ -329,11 +325,6 @@ function init_threeD_window() {
     cent[1] /= m;
     cent[2] /= m;
 
-    //console.log("cent...", cent);
-    //console.log("max:", _max, "min:", _min);
-
-    //g_pepacat_model.vert_raw = verts;
-
     for (var ind=0; ind<n; ind+=9) {
 
       var uniq_r = Math.floor( 127.9 * Math.random() );
@@ -372,27 +363,8 @@ function init_threeD_window() {
 
       var tri_mesh = new THREE.Mesh( tri_geom, tri_mat );
 
-      //g_pepacat_model.vert3d.push( [ verts[ind+0], verts[ind+1], verts[ind+2] ] );
-      //g_pepacat_model.vert3d.push( [ verts[ind+3], verts[ind+4], verts[ind+5] ] );
-      //g_pepacat_model.vert3d.push( [ verts[ind+6], verts[ind+7], verts[ind+8] ] );
-
-      //david
-      /*
-      var s = .10800;
-      var sx = s;
-      var sy = s;
-      var sz = s;
-
-      var r = (Math.random() + (ya*ya/100.0))*s*3;
-      r = 0;
-      */
-
-      //tri_mesh.position.set( -cent[0], -cent[1], -cent[2] );
-      //tri_mesh.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-      //tri_mesh.rotation.set( 0, 0, 0 );
-
       //bunny
-      //var s = .00800;
+      //
       var s = 0.5/(((_max[0] - _min[0])/2.0 + (_max[1] - _min[1])/2.0 + (_max[2] - _min[2])/2.0 )/3.0);
       var sx = s;
       var sy = s;
@@ -401,208 +373,22 @@ function init_threeD_window() {
       g_threeD_state.scale = s;
       g_threeD_state.pos = [0, -0.65, 0];
 
-      //tri_mesh.position.set( 0, - 0.37, - 0.6 );
-      //tri_mesh.position.set( -0.1, - 0.37, - 0.0 );
-      //tri_mesh.position.set( -0.1, - Math.random()/10.5 - .3, 0.0);
-
       //bunny
+      //
       tri_mesh.position.set( -0.0, - 0.65, - 0.0 );
-      //tri_mesh.position.set( -cent[0]*s, -cent[1]*s, -cent[2]*s);
-      /*
-      tri_mesh.position.set(
-      (_max[0] - _min[0])*s/2.0,
-                             (_max[1] - _min[1])*s/2.0,
-                             (_max[2] - _min[2])*s/2.0 );
-                             */
       tri_mesh.rotation.set( - Math.PI / 2, 0, 0 );
 
       tri_mesh.scale.set( sz,sy,sz );
       tri_mesh.castShadow = true;
-      //tri_mesh.receiveShadow = true;
 
       tri_mesh._data = { raw_ind: ind, tri_ind : Math.floor(ind/9), type:"tri" };
-      //g_pepacat_model.tri_mesh.push( tri_mesh );
-      //g_pepacat_model.tri_geom.push( tri_geom );
-
       g_pepacat_model.tri_mesh_3d.push(tri_mesh);
       g_pepacat_model.tri_geom_3d.push(tri_geom);
 
-
       g_scene.add( tri_mesh );
 
-
-      //TESTING
-      // fooling around with lines
-      //
-
-      /*
-
-      var l_u = [verts[ind+0], verts[ind+1], verts[ind+2]];
-      var l_v = [verts[ind+3], verts[ind+4], verts[ind+5]];
-      var l_w = [verts[ind+6], verts[ind+7], verts[ind+8]];
-
-      var e0 = _norm_edge3(l_u, l_v);
-      var e1 = _norm_edge3(l_u, l_w);
-      var e2 = _norm_edge3(l_v, l_w);
-
-      var ss = sx*1.05;
-      var wire_x = 0.0;
-      var wire_y = -0.68;
-      var wire_z = 0.0;
-      if (!(e0 in g_edge_3)) {
-        var line = _emit_line( l_u, l_v );
-        g_edge_3[e0] = line;
-
-        //var ss = sx;
-
-        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( wire_x, wire_y, wire_z );
-        line.rotation.set( - Math.PI / 2, 0, 0 );
-        line.scale.set( ss,ss,ss );
-        g_scene.add(line);
-      }
-
-      if (!(e1 in g_edge_3)) {
-        var line = _emit_line( l_u, l_w );
-        g_edge_3[e1] = line;
-
-        //var ss = sx;
-
-        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( wire_x, wire_y, wire_z );
-        line.rotation.set( - Math.PI / 2, 0, 0 );
-        line.scale.set( ss,ss,ss );
-        g_scene.add(line);
-      }
-
-      if (!(e2 in g_edge_3)) {
-        var line = _emit_line( l_v, l_w );
-        g_edge_3[e2] = line;
-
-        //var ss = sx;
-
-        line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-        line.position.set( wire_x, wire_y, wire_z );
-        line.rotation.set( - Math.PI / 2, 0, 0 );
-        line.scale.set( ss,ss,ss );
-        g_scene.add(line);
-      }
-      */
-
       g_redraw_3d=true;
-
-
-      /*
-      var line_mat = new THREE.LineBasicMaterial({ color:0x000000 });
-      var line_geom = new THREE.Geometry();
-      line_geom.vertices.push( new THREE.Vector3( verts[ind+0], verts[ind+1], verts[ind+2] ) );
-      line_geom.vertices.push( new THREE.Vector3( verts[ind+3], verts[ind+4], verts[ind+5] ) );
-      line_geom.vertices.push( new THREE.Vector3( verts[ind+6], verts[ind+7], verts[ind+8] ) );
-      line_geom.vertices.push( new THREE.Vector3( verts[ind+0], verts[ind+1], verts[ind+2] ) );
-      var line = new THREE.Line( line_geom, line_mat );
-      line._data = { type: "line" };
-
-      line.position.set( -cent[0]*s, -(cent[1]-r)*s, -cent[2]*s );
-      line.position.set( -0.0, - 0.65, - 0.0 );
-      line.rotation.set( - Math.PI / 2, 0, 0 );
-      line.scale.set( sz,sy,sz );
-
-      g_scene.add(line);
-      */
-
-      //
-      //TESTING
-
-
     }
-
-    //pepacat_init( g_pepacat_model );
-
-
-    //DEBUG
-    /*
-    x0 = _tri_unfold_single( g_pepacat_model, 53, 244, true );
-    x1 = _tri_unfold_single( g_pepacat_model, 244, 41, false );
-    x2 = _tri_unfold_single( g_pepacat_model, 41, 263, false );
-    x3 = _tri_unfold_single( g_pepacat_model, 263, 201, false );
-
-    var t0 = simplecopy(x0);
-    var t1 = simplecopy(x1);
-    var t2 = simplecopy(x2);
-    var t3 = simplecopy(x3);
-    _scale2d(t0[0], 10) ; _scale2d(t0[1],10) ;
-    _scale2d(t1[0], 10) ; _scale2d(t1[1],10) ;
-    _scale2d(t2[0], 10) ; _scale2d(t2[1],10) ;
-    _scale2d(t3[0], 10) ; _scale2d(t3[1],10) ;
-    //g_2d.debug_geom = [ t0[0], t0[1], t1[0], t1[1] ];
-
-    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t0[0][0], t0[0][1]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t0[0][1], t0[0][2]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t0[0][2], t0[0][0]] } );
-
-    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t0[1][0], t0[1][1]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t0[1][1], t0[1][2]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t0[1][2], t0[1][0]] } );
-
-    //g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t1[0][0], t1[0][1]] } );
-    //g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t1[0][1], t1[0][2]] } );
-    //g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t1[0][2], t1[0][0]] } );
-
-    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t1[1][0], t1[1][1]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t1[1][1], t1[1][2]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t1[1][2], t1[1][0]] } );
-
-    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t2[1][0], t2[1][1]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t2[1][1], t2[1][2]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t2[1][2], t2[1][0]] } );
-
-    g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [t3[1][0], t3[1][1]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [t3[1][1], t3[1][2]] } );
-    g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [t3[1][2], t3[1][0]] } );
-
-    for (var i=0; i<3; i++) { }
-    //g_2d.debug_geom = [ t1[0], t1[1] ];
-
-
-    //__debug(g_pepacat_model, 53);
-    //__debug(g_pepacat_model, 244);
-    //__debug(g_pepacat_model, 41);
-    */
-
-    /*
-    var XX = [];
-    XX.push( _tri_unfold_single( g_pepacat_model, 42, 255 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 255, 18 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 18, 278 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 18, 101 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 101, 224 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 101, 34 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 34, 269 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 269, 141 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 141, 190 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 190, 89 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 89, 14 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 14, 289 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 289, 32 ) );
-    XX.push( _tri_unfold_single( g_pepacat_model, 32, 97 ) );
-
-    var TT = [];
-    for (var ind=0; ind<XX.length; ind++) {
-      TT.push( simplecopy(XX[ind]) );
-      _scale2d(TT[ind][0], 10) ; _scale2d(TT[ind][1],10) ;
-    }
-
-    for (var ind =0; ind<TT.length; ind++) {
-
-      g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [TT[ind][0][0], TT[ind][0][1]] } );
-      g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [TT[ind][0][1], TT[ind][0][2]] } );
-      g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [TT[ind][0][2], TT[ind][0][0]] } );
-
-      g_2d.debug_cpath.push( { color:"rgba(255,0,0,0.5)", data: [TT[ind][1][0], TT[ind][1][1]] } );
-      g_2d.debug_cpath.push( { color:"rgba(0,255,0,0.5)", data: [TT[ind][1][1], TT[ind][1][2]] } );
-      g_2d.debug_cpath.push( { color:"rgba(0,0,255,0.5)", data: [TT[ind][1][2], TT[ind][1][0]] } );
-    }
-    */
 
     g_pepacat_model.LoadModel(__verts, __norms);
     g_pepacat_model.init_flag = true;
@@ -611,8 +397,6 @@ function init_threeD_window() {
     _jitter();
 
   });
-
-
 
   // Lights
 
@@ -626,7 +410,6 @@ function init_threeD_window() {
   g_renderer = new THREE.WebGLRenderer( { antialias: true } );
   g_renderer.setClearColor( g_scene.fog.color );
   g_renderer.setPixelRatio( window.devicePixelRatio );
-  //g_renderer.setSize( window.innerWidth, window.innerHeight );
   g_renderer.setSize( g_containerWidth, g_containerHeight );
 
   g_renderer.gammaInput = true;
@@ -647,7 +430,6 @@ function init_threeD_window() {
   //
 
   window.addEventListener( 'resize', onWindowResize, false );
-
 }
 
 function addShadowedLight( x, y, z, color, intensity ) {
@@ -676,8 +458,6 @@ function addShadowedLight( x, y, z, color, intensity ) {
 }
 
 function onWindowResize() {
-
-  //var div = document.getElementById("threeD");
   var w = g_container.clientWidth;
   var h = g_container.clientHeight;
   if (h<=0) { h = 1; }
@@ -687,29 +467,32 @@ function onWindowResize() {
 
   g_renderer.setSize( w, h );
 
-  //containerWidth = w;
-  //containerHeight = h;
-  console.log("resize>>>", w, h );
-
+  g_threeD_state.dirty = true;
 }
 
 function animate() {
-
-
-  if (g_redraw_3d) {
+  if (g_redraw_3d || g_threeD_state.dirty) {
     g_redraw_3d=false;
     render();
   }
   loop2d();
 
-
   g_stats.update();
-
   requestAnimationFrame( animate );
-
 }
 
-function threeD_unhighlight_tri(tri_idx) {
+function threeD_unhighlight_tri() {
+
+  for (var tri_idx in g_threeD_state.tri_orig_color) {
+    var orig_color = g_threeD_state.tri_orig_color[tri_idx];
+
+    g_pepacat_model.tri_mesh_3d[tri_idx].material.color.set(orig_color);
+  }
+
+  g_threeD_state.dirty = true;
+
+  return;
+
   var tri_l = [];
   for (var tri_idx in g_threeD_state.tri_orig_color) {
     tri_l.push(tri_idx);
@@ -729,22 +512,19 @@ function threeD_highlight_tri(tri_idx) {
     g_world.draw_highlight=true;
   }
 
-  g_threeD_state.tri_orig_color[tri_idx] = 
-    g_pepacat_model.tri_mesh_3d[tri_idx].material.color.getHex();
   g_threeD_state.tri_idx = tri_idx;
   g_pepacat_model.tri_mesh_3d[tri_idx].material.color.set(hi_color_hex);
 
   var tri_group_name = g_pepacat_model.TriGroupName(tri_idx);
   for (var idx in g_pepacat_model.trigroup2d[tri_group_name].tri_idx_map) {
     if (idx == tri_idx) { continue; }
-
-    g_threeD_state.tri_orig_color[idx] = 
-      g_pepacat_model.tri_mesh_3d[idx].material.color.getHex();
     g_threeD_state.idx = idx;
     g_pepacat_model.tri_mesh_3d[idx].material.color.set(alt_color_hex);
   }
 
 	g_redraw_3d=true;
+
+  g_threeD_state.dirty = true;
 }
 
 function render() {
@@ -759,7 +539,6 @@ function render() {
   var yy = Math.PI * g_threeD_state.mousey;
 
   var R = g_threeD_state.cameraR;
-  //var R = 3.0;
   var camv = [ Math.cos( xx ), yy, Math.sin( xx ) ];
   var r = Math.sqrt( (camv[0]*camv[0]) + (camv[1]*camv[1]) + (camv[2]*camv[2]) );
   if (r < 0.1) { r = 1; }
@@ -770,9 +549,13 @@ function render() {
 
   g_camera.lookAt( g_cameraTarget );
 
+  // slow but we can fix later if it's a problem
+  //
+  threeD_unhighlight_tri();
+
   //pick testing
   //
-  if (g_threeD_state.focus) {
+  if (g_threeD_state.focus || g_threeD_state.dirty) {
 
     g_raycaster.setFromCamera( g_mouse, g_camera );
     var intersects = g_raycaster.intersectObjects( g_scene.children );
@@ -781,14 +564,13 @@ function render() {
 
     if (intersects.length==0) {
       if (g_threeD_state.tri_idx != -1) {
-        //console.log(">>clearing highlight");
         g_world.clearHighlight();
+        threeD_unhighlight_tri();
       }
     }
 
     var hit = false;
     var hit_tri = -1;
-
 
     for (var i=0; i<intersects.length; i++) {
       if (intersects[i].object.ignore) { continue; }
@@ -797,8 +579,6 @@ function render() {
         intersects[i].object.material.color.getHex();
 
       if (first) {
-        //intersects[i].object.material.color.set(0xff0000);
-
         var x = intersects[i].object;
         var geom = x.geometry;
 
@@ -807,41 +587,10 @@ function render() {
           if (intersects[i].object._data.type == "tri") {
             hit_tri = intersects[i].object._data.tri_ind;
             hit=true;
-
-            /*
-            var tri_idx = intersects[i].object._data.tri_ind;
-            //console.log("tri>>>", tri_idx);
-
-            if (g_threeD_state.tri_idx != tri_idx) {
-              g_world.updateHighlight(tri_idx);
-              g_world.draw_highlight=true;
-            }
-
-            g_threeD_state.tri_idx = tri_idx;
-            */
-
           }
-
-          //hit = true;
-
         } else if (intersects[i].object._data.type == "tri") {
           hit_tri = intersects[i].object._data.tri_ind;
           hit=true;
-
-          /*
-          var tri_idx = intersects[i].object._data.tri_ind;
-          //console.log("tri>>>", tri_idx);
-
-          if (g_threeD_state.tri_idx != tri_idx) {
-            g_world.updateHighlight(tri_idx);
-            g_world.draw_highlight=true;
-          }
-
-          g_threeD_state.tri_idx = tri_idx;
-
-          hit = true;
-          */
-
         }
 
       }
@@ -853,8 +602,8 @@ function render() {
       threeD_highlight_tri(hit_tri);
     } else {
       if (g_threeD_state.tri_idx != -1) {
-        //console.log(">>clearing highlight (nothing hit?)");
         g_world.clearHighlight();
+        threeD_unhighlight_tri();
       }
     }
 
@@ -864,23 +613,5 @@ function render() {
   }
 
   g_renderer.render( g_scene, g_camera );
-
-  // set colors back to original.
-  // inifficient but proof of concept...
-  //
-  for (var tri_idx in g_threeD_state.tri_orig_color) {
-    var c = g_threeD_state.tri_orig_color[tri_idx];
-    g_pepacat_model.tri_mesh_3d[tri_idx].material.color.set(c);
-  }
-
-  if (g_threeD_state.focus) {
-
-    for (var i=0; i<intersects.length; i++) {
-      if (intersects[i].object.ignore) { continue; }
-      intersects[i].object.material.color.setHex( intersects[i].object.orig_color );
-    }
-
-  }
-
-
+  g_threeD_state.dirty = false;
 }
