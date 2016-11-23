@@ -418,6 +418,20 @@ function PepacatModel() {
 
 }
 
+PepacatModel.prototype.allclose = function(a, b) {
+  var n = a.length;
+  var m = b.length;
+  if (n!=m) { return false; }
+
+  var eps = 1.0 / this.info.premul;
+
+  for (var ii=0; ii<n; ii++) {
+    var del = Math.abs(a[ii] - b[ii]);
+    if (del > eps) { return false; }
+  }
+  return true;
+}
+
 PepacatModel.prototype.LoadSTLFile = function(fn) {
   var facets = stl.toObject(fs.readFileSync(fn));
 
@@ -1171,7 +1185,11 @@ function __min_vert_nod(idx0, e0, idx1, e1) {
 // other vertices from other triangles that share the same point
 // to the representative value.
 //
-PepacatModel.prototype._force_joint_match = function(tri_idx) {
+PepacatModel.prototype._force_joint_match = function(tri_idx, debug) {
+}
+
+PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
+  debug = ((typeof debug === "undefined") ? false : debug);
   var group_name = this.TriGroupName(tri_idx);
   var group = this.trigroup2d[group_name];
   var ele = this.trigroup2d[group_name].tri_idx_map[tri_idx];
@@ -1212,6 +1230,15 @@ PepacatModel.prototype._force_joint_match = function(tri_idx) {
       //
       else {
         var idx_v = __min_vert_nod(tri_idx, edge.src_edge[0], nei_idx, edge.dst_edge[1]);
+        idx_v = __min_vert_nod(vert_node[key0].idx, vert_node[key0].v, idx_v[0], idx_v[1]);
+        idx_v = __min_vert_nod(vert_node[key1].idx, vert_node[key1].v, idx_v[0], idx_v[1]);
+
+
+        if (debug) {
+        console.log("# add1 vert_node:", idx_v , tri_idx, edge.src_edge[0], nei_idx, edge.dst_edge[1]);
+        }
+
+
         vert_node[key0].idx = idx_v[0];
         vert_node[key0].v = idx_v[1];
         vert_node[key1].idx = idx_v[0];
@@ -1243,6 +1270,13 @@ PepacatModel.prototype._force_joint_match = function(tri_idx) {
       //
       else {
         var idx_v = __min_vert_nod(tri_idx, edge.src_edge[1], nei_idx, edge.dst_edge[0]);
+        idx_v = __min_vert_nod(vert_node[key0].idx, vert_node[key0].v, idx_v[0], idx_v[1]);
+        idx_v = __min_vert_nod(vert_node[key1].idx, vert_node[key1].v, idx_v[0], idx_v[1]);
+
+        if (debug) {
+        console.log("# add2 vert_node:", idx_v ,tri_idx, edge.src_edge[1], nei_idx, edge.dst_edge[0]);
+        }
+
         vert_node[key0].idx = idx_v[0];
         vert_node[key0].v = idx_v[1];
         vert_node[key1].idx = idx_v[0];
@@ -1252,7 +1286,28 @@ PepacatModel.prototype._force_joint_match = function(tri_idx) {
     }
   }
 
+  for (var tri_idx in group.tri_idx_map) {
+    for (var ii=0; ii<3; ii++) {
+      var key = tri_idx + ":" + ii;
+      if (!(key in vert_node)) {
+        vert_node[key] = { idx: tri_idx, v: ii };
+      }
+    }
+  }
+
+
+
+  if (debug) {
+  for (var key in vert_node) {
+    console.log("# vert_node[", key, "]:", JSON.stringify(vert_node[key]));
+  }
+  }
+
+
   // Collect population for each representative in vert_node.
+  // The key is the 'representative' vertex and the values is an
+  // object with a key for each of the triangle verticies that
+  // fall on the same representative.
   //
   var vert_pop_map = {};
   for (var key in vert_node) {
@@ -1262,6 +1317,159 @@ PepacatModel.prototype._force_joint_match = function(tri_idx) {
     vert_pop_map[rep_key][key] = true;
   }
 
+  if (debug) {
+    console.log("#vert_pop_map");
+  for (var key in vert_pop_map) {
+    console.log("#", key, JSON.stringify(vert_pop_map[key]));
+  }
+  }
+
+  var border_edge = {};
+
+  var key0, key1, key_v0, key_v1, edge_key;
+  var src_idx, dst_idx, src_v, dst_v;
+
+  // init
+  //
+  for (var tri_idx in group.tri_idx_map) {
+    for (var ii=0; ii<3; ii++) {
+      jj = (ii+1)%3;
+      key0 = tri_idx + ":" + ii;
+      key1 = tri_idx + ":" + jj;
+
+      src_idx = vert_node[key0].idx;
+      src_v = vert_node[key0].v;
+
+      dst_idx = vert_node[key1].idx;
+      dst_v = vert_node[key1].v;
+
+      key_v0 = vert_node[key0].idx + ":" + vert_node[key0].v;
+      key_v1 = vert_node[key1].idx + ":" + vert_node[key1].v;
+      edge_key = key_v0 + ";" + key_v1;
+      border_edge[edge_key] = { src_idx : src_idx, dst_idx: dst_idx, src_v: src_v, dst_v: dst_v, border : true, visited: false };
+    }
+  }
+
+
+
+  var tot_edge_count = 0;
+  for (var tri_idx in group.tri_idx_map) {
+
+    for (var nei_idx in group.tri_idx_map[tri_idx].nei_tri_idx_map) {
+      var edge = group.tri_idx_map[tri_idx].nei_tri_idx_map[nei_idx];
+
+      key0 = tri_idx + ":" + edge.src_edge[0];
+      key1 = tri_idx + ":" + edge.src_edge[1];
+      key_v0 = vert_node[key0].idx + ":" + vert_node[key0].v;
+      key_v1 = vert_node[key1].idx + ":" + vert_node[key1].v;
+      edge_key = key_v0 + ";" + key_v1;
+      border_edge[edge_key].border = false;
+
+      key0 = nei_idx + ":" + edge.dst_edge[0];
+      key1 = nei_idx + ":" + edge.dst_edge[1];
+      key_v0 = vert_node[key0].idx + ":" + vert_node[key0].v;
+      key_v1 = vert_node[key1].idx + ":" + vert_node[key1].v;
+      edge_key = key_v0 + ";" + key_v1;
+      border_edge[edge_key].border = false;
+
+      tot_edge_count += 2;
+
+    }
+  }
+
+  var cur_vert = null;
+  var vert_jump = {};
+
+  var border_edge_count = 0;
+  for (var k in border_edge) {
+    if (debug) {
+    console.log("# border_edge:", k, JSON.stringify(border_edge[k]));
+    }
+
+    if (!border_edge[k].border) { continue; }
+
+    border_edge_count++;
+
+    src_idx = border_edge[k].src_idx;
+    src_v = border_edge[k].src_v;
+
+    dst_idx = border_edge[k].dst_idx;
+    dst_v = border_edge[k].dst_v;
+
+    var src_key = src_idx + ":" + src_v;
+    var dst_key = dst_idx + ":" + dst_v;
+
+
+    if (src_key in vert_jump) {
+      console.log("#ERROR: multiple sources for boundary: src_key:", src_key, ", dst_key:", dst_key, "from border_edge:", k, border_edge[k]);
+      return null;
+    }
+
+    if (debug) {
+    console.log("#vert_map: adding src_key:", src_key, ", dst_key:", dst_key);
+    }
+
+
+    vert_jump[src_key] = { dst_key:dst_key, src_idx: src_idx, src_v: src_v, dst_idx: dst_idx, dst_v: dst_v, visited: false };
+    if (!cur_vert) { cur_vert = src_idx + ":" + src_v; }
+
+    if (debug) {
+    console.log("#", src_idx +  ":" + src_v, "->", dst_idx + ":" + dst_v );
+    console.log( group.tri_idx_map[src_idx].tri2d[src_v][0], group.tri_idx_map[src_idx].tri2d[src_v][1] );
+    console.log( group.tri_idx_map[dst_idx].tri2d[dst_v][0], group.tri_idx_map[dst_idx].tri2d[dst_v][1] );
+    console.log("");
+    }
+
+  }
+
+  var border = [];
+  var x, y;
+
+  if (debug) {
+    console.log("#\n#vert_map:");
+  for (var k in vert_jump) {
+    console.log("#", k, JSON.stringify(vert_jump[k]));
+  }
+  }
+
+  var visited_count=0;
+  while (!vert_jump[cur_vert].visited) {
+    vert_jump[cur_vert].visited = true;
+    visited_count++;
+
+    var nod = vert_jump[cur_vert];
+
+    src_idx = nod.src_idx;
+    src_v   = nod.src_v;
+
+    dst_idx = nod.dst_idx;
+    dst_v   = nod.dst_v;
+
+    x = group.tri_idx_map[src_idx].tri2d[src_v][0];
+    y = group.tri_idx_map[src_idx].tri2d[src_v][1];
+
+    border.push( [x,y] );
+
+    cur_vert = dst_idx + ":" + dst_v;
+
+    if (!(cur_vert in vert_jump)) {
+      console.log("#ERROR: could not find next vertex in vert_jump:", cur_vert);
+      return null;
+    }
+
+  }
+
+  if (debug) {
+  console.log("");
+  for (var ii=0, il=border.length; ii<il; ii++) {
+    console.log(border[ii][0], border[ii][1]);
+  }
+  console.log("");
+  }
+
+  return border;
+
+  /*
   // Go through population, setting the vertex to the representative
   //
   for (var rep_key in vert_pop_map) {
@@ -1280,6 +1488,8 @@ PepacatModel.prototype._force_joint_match = function(tri_idx) {
 
   }
 
+  return [vert_node, vert_pop_map];
+  */
 }
 
 PepacatModel.prototype.TriGroupUnfold = function(group_name, debug) {
@@ -1305,7 +1515,7 @@ PepacatModel.prototype.TriGroupUnfold = function(group_name, debug) {
   //
   var m = this.trigroup2d[group_name].tri_idx_map;
 
-  this._force_joint_match(anch_tri_idx);
+  //this._force_joint_match(anch_tri_idx);
 }
 
 function _key2d(x,y,S) {
@@ -1369,6 +1579,21 @@ PepacatModel.prototype.TriGroupClipArea = function(group) {
 // 2d points (array of arrays) to ultimately return.
 //
 PepacatModel.prototype.TriGroupBoundary = function(group) {
+  var have_rep_tri = false;
+  var rep_tri = null;
+
+  for (var tri_idx in group.tri_idx_map) {
+    rep_tri = tri_idx;
+    have_rep_tri = true;
+    break;
+  }
+
+  if (!(have_rep_tri)) { return []; }
+  return this._skel_boundary(rep_tri);
+}
+
+PepacatModel.prototype._TriGroupBoundary = function(group) {
+
   var g = group;
 
   var vertex_map = {};
@@ -1704,8 +1929,11 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
   */
 
   //var cliparea = this.TriGroupClipArea(fix_trigroup_name);
+
+  if (0) {
   var fgr = this.trigroup2d[fix_trigroup_name];
   var cliparea = this.TriGroupClipArea(fgr);
+  }
 
   this.visited = {};
   for (var tri_idx in this.trigroup2d[mov_trigroup_name].tri_idx_map) { this.visited[tri_idx] = false; }
@@ -1713,8 +1941,10 @@ PepacatModel.prototype.SplitTriangle = function(fix_tri_idx, mov_tri_idx, debug)
 
 
   //cliparea = this.TriGroupClipArea(mov_trigroup_name);
+  if (0) {
   var mgr = this.trigroup2d[mov_trigroup_name];
   cliparea = this.TriGroupClipArea(mgr);
+  }
 
 
   this.trigroup2d[fix_trigroup_name].bbox = this.TriGroupBoundingBox(this.trigroup2d[fix_trigroup_name]);
@@ -2325,11 +2555,114 @@ function test7() {
 
 }
 
+function test8() {
+
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+  gg.HeuristicUnfold();
+
+  var tri_idxs = [ 53, 44, 263, 41 ];
+  for (var ii=0; ii<tri_idxs.length; ii++) {
+    var tri_idx = tri_idxs[ii];
+    var gn = gg.TriGroupName(tri_idx);
+    console.log("idx", tri_idx, "group", gn);
+  }
+
+  var group_name = gg.TriGroupName(tri_idxs[0]);
+
+  // deprecated
+  //var ab = gg._force_joint_match(group_name);
+
+  //var vert_node = ab[0];
+  //var vert_pop_map = ab[1];
+
+  //console.log(JSON.stringify(vert_node));
+  //console.log(JSON.stringify(vert_pop_map));
+
+  console.log("#deprecated...");
+
+
+}
+
+function test9() {
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+
+  var sched = [
+    { a:'j', t: [7, 45]},
+    { a:'j', t: [45, 9]},
+    { a:'j', t: [9, 168]},
+    { a:'j', t: [168, 203]},
+    { a:'j', t: [7,254]},
+    { a:'j', t: [254, 104]},
+    { a:'j', t: [104,229]},
+    { a:'s', t: [104,229]}
+  ];
+
+  for (var ii=0, il=sched.length; ii<il; ii++) {
+
+    if (sched[ii].a == 'j') {
+      gg.JoinTriangle(sched[ii].t[0], sched[ii].t[1]);
+    } else if (sched[ii].a == 's') {
+      gg.SplitTriangle(sched[ii].t[0], sched[ii].t[1], true);
+    }
+
+    /*
+    var r = gg.Consistency();
+    var msg = "ok";
+    if (r.error) {
+      msg = r.message;
+    }
+    console.log(ii, JSON.stringify(sched[ii]), msg);
+    */
+  }
+
+  console.log("#...");
+
+  var debug = false;
+
+  var rep_tri = 7;
+
+  var boundary = gg._skel_boundary(rep_tri, debug);
+  for (var ii=0, il=boundary.length; ii<il; ii++) {
+    console.log(boundary[ii][0], boundary[ii][1]);
+  }
+
+  var gn = gg.TriGroupName(rep_tri);
+  var gr = gg.trigroup2d[gn];
+
+  var _b = gg.TriGroupBoundary(gr);
+  console.log("");
+  for (var ii=0, il=_b.length; ii<il; ii++) {
+    console.log(_b[ii][0], _b[ii][1]);
+  }
+  console.log("");
+
+  console.log("#... -->", gg.allclose(boundary, _b));
+}
+
+function test10() {
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+
+  gg.HeuristicUnfold();
+
+  return;
+
+  var tri_list = ["0","3","5","22","28","29","31","35","46","51","52","61","64","65","73","74","76","77","85","88","94","106","123","132","158","172","183","186","192","193","234","252"];
+  var tri_map = {};
+  for (var ii=0; ii<tri_list.length; ii++) {
+    var tri_idx = parseFloat(tri_list[ii]);
+    tri_map[tri_idx] = true;
+  }
+
+}
 
 if (typeof module !== 'undefined') {
   console.log("#TESTING", MODEL_FN);
-  test6();
+  //test6();
   //test7();
+  test10();
 }
 
 //test6();
