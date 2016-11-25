@@ -96,6 +96,7 @@ toolNav2d.prototype.mousemove = function(button, mousex, mousey) {
       for (var tri_idx in group.tri_idx_map) {
         var tri = group.tri_idx_map[tri_idx].tri2d;
         if (_pnt_in_tri( [x,y], tri[0], tri[1], tri[2])) {
+          threeD_unhighlight_tri();
           threeD_highlight_tri(tri_idx);
           this.world.updateHighlight(tri_idx);
           this.world.draw_highlight=true;

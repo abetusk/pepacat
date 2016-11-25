@@ -23,6 +23,8 @@
     <script src="js/lib/clipper_unminified.js"></script>
     <script src="bootstrap/js/bootstrap.min.js"></script>
     <script src="js/lib/pixi.js"></script>
+    <script src="js/lib/FileSaver.js"></script>
+
 
     <script src="js/lib/sylvester.js"></script>
     <script src="js/lib/numeric.js"></script>
@@ -44,6 +46,7 @@
     <script src='js/toolMove2d.js'></script>
     <script src='js/toolCutGlue2d.js'></script>
 
+    <script src="js/init.js"></script>
 
     <script>
 
@@ -171,6 +174,11 @@ function glue_button() {
           </ul>
 
           <ul class="nav navbar-nav navbar-right">
+
+            <li>
+              <input type='file' id='file_ul' onchange='file_ul();'>
+            </li>
+
             <li><a href="#upload">
               <span style="right:10%;" class="glyphicon glyphicon-cloud-upload"
                 data-toggle="tooltip" data-placement="bottom" title="Upload STL">

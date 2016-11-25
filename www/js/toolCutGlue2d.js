@@ -223,11 +223,10 @@ toolCutGlue2d.prototype.mousemove = function(button, mousex, mousey) {
 
   if (hit_info.hit) {
     var tri_idx = hit_info.tri_idx;
+    threeD_unhighlight_tri();
     threeD_highlight_tri(tri_idx);
     this.world.updateHighlight(tri_idx);
     this.world.draw_highlight=true;
-
-    console.log("hit", tri_idx, hit_info.has_nei);
 
     if (hit_info.has_nei) {
       if (hit_info.type == "glue") {
@@ -241,11 +240,6 @@ toolCutGlue2d.prototype.mousemove = function(button, mousex, mousey) {
 
   }
   else {
-
-
-    //DEBUG
-    console.log(">>unighlight");
-
 
     threeD_unhighlight_tri();
     this.world.unhighlightEdge();

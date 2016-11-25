@@ -418,6 +418,24 @@ function PepacatModel() {
 
 }
 
+PepacatModel.prototype.ExportJSON = function(a, b) {
+  var json = {};
+
+  json["tri3d"] = this.tri3d;
+  json["trn3d"] = this.trn3d;
+  json["tri2d"] = this.tri2d;
+  json["tri_adjmap"] = this.tri_adjmap;
+
+  json["layer2d"] = this.layer2d;
+
+  json["info"] = this.info;
+  json["trigroup2d"] = this.trigroup2d;
+  json["edge3d_adjmap"] = this.edge3d_adjmap;
+  json["tri_idx_trigroup_lookback"] = this.tri_idx_trigroup_lookback;
+
+  return JSON.stringify(json);
+}
+
 PepacatModel.prototype.allclose = function(a, b) {
   var n = a.length;
   var m = b.length;
@@ -787,9 +805,6 @@ PepacatModel.prototype.TriGroupTranslate = function(group, dx, dy) {
 		group.tri_idx_map[tri_idx].tri2d = _tri2d;
   }
 	group.bbox = this.TriGroupBoundingBox(group);
-
-
-  this._force_joint_match(rep_idx);
 }
 
 PepacatModel.prototype.TriGroupRotate = function(group, px, py, rad) {
@@ -805,8 +820,6 @@ PepacatModel.prototype.TriGroupRotate = function(group, px, py, rad) {
 		group.tri_idx_map[tri_idx].tri2d = _tri2d;
   }
 	group.bbox = this.TriGroupBoundingBox(group);
-
-  this._force_joint_match(rep_idx);
 }
 
 
@@ -1174,35 +1187,77 @@ function __min_vert_nod(idx0, e0, idx1, e1) {
   return [idx1,e1];
 }
 
-// Force shared verticies to be the same.
-// With all the rotations and realizations of the triangles (in 2d)
-// there's the potential for round off error to be introduced.
-// I thought I could get away with it but I think it's going to be a
-// problem.  This comes up because I use the vertices as keys so
-// small perturbations will cause errors in some of the algorithms
-// to walk boundaries, say.
-// This funciton picks a 'representative' vertex and sets all
-// other vertices from other triangles that share the same point
-// to the representative value.
-//
-PepacatModel.prototype._force_joint_match = function(tri_idx, debug) {
+PepacatModel.prototype._adorn__boundary = function(tri_idx, debug) {
 }
 
+// Recursively go through canon_vert to find all in teh grup and put the vertex identifier
+// into bag.
+//
+PepacatModel.prototype._canon_collect_v = function(canon_vert, bag, cur_idx, cur_v) {
+  var key = cur_idx + ":" + cur_v;
+  if (canon_vert[key].visited) { return; }
+
+  bag[key] = { idx: cur_idx, v: cur_v };
+  canon_vert[key].visited = true;
+  for (var nei_key  in canon_vert[key].nei) {
+    this._canon_collect_v(canon_vert, bag, canon_vert[key].nei[nei_key].dst_idx, canon_vert[key].nei[nei_key].dst_v);
+  }
+
+}
+
+// populate vert_node with the representatives name for each vertex (key) as it appers in canon_vert
+//
+PepacatModel.prototype._find_canon_vert = function(canon_vert, vert_node) {
+  var idx, v;
+
+  for (var key0 in canon_vert) {
+
+    if (canon_vert[key0].visited) { continue; }
+
+    var bag = {};
+    this._canon_collect_v(canon_vert, bag, canon_vert[key0].idx, canon_vert[key0].v);
+
+    // find minimum idx/v for representative vertex
+    //
+    idx = -1; v = -1;
+    for (var k in bag) {
+      if ((parseInt(idx) == -1) || (parseInt(bag[k].idx) < parseInt(idx))) {
+        idx = bag[k].idx;
+        v = bag[k].v;
+      } else if ((parseInt(bag[k].idx) == parseInt(idx)) && (parseInt(bag[k].v) < parseInt(v))) {
+        v = bag[k].v;
+      }
+    }
+
+    // update all in the group to the representative
+    //
+    for (var k in bag) {
+      vert_node[k] = { idx: idx, v: v };
+    }
+
+  }
+
+}
+
+// Create the boundary without any decorations.
+//
 PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   debug = ((typeof debug === "undefined") ? false : debug);
   var group_name = this.TriGroupName(tri_idx);
   var group = this.trigroup2d[group_name];
   var ele = this.trigroup2d[group_name].tri_idx_map[tri_idx];
 
-  var vert_node = {};
+  //var vert_node = {};
 
-  // Populate vert_node.
-  // Each element will share a node with their connected vertices.
-  // There are 3(ish) cases:
-  //   * both pairs don't have an entry -> create shared node and populate
-  //   * one but not the other has an entry -> fill in with the one that has the entry
-  //   * both have an entry -> take min. and overwrite *values* (not structure)
-  //      so that other entries that point to the entry pick up change
+  var canon_vert = {};
+
+  // Verticies overlap on triangles, sometimes more than two (think of a 'fan').
+  // In order to trace the boundary in order, we need to find which boundary
+  // edges are valid and then trace them in order.
+  // We want to take a representative vertex to use as boundary point.
+  // canon_vert creates the data structure that holds 'neighboring' vertices that
+  // sit on top of each other so we can populate vert_node with the canonical name
+  // for each vertex point.
   //
   for (var tri_idx in group.tri_idx_map) {
     for (var nei_idx in group.tri_idx_map[tri_idx].nei_tri_idx_map) {
@@ -1211,81 +1266,23 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
       var key0 = tri_idx + ":" + edge.src_edge[0];
       var key1 = nei_idx + ":" + edge.dst_edge[1];
 
-      if ( (!(key0 in vert_node)) && (!(key1 in vert_node)) ) {
-        var idx_v = __min_vert_nod(tri_idx, edge.src_edge[0], nei_idx, edge.dst_edge[1]);
-        var nod = { idx: idx_v[0], v: idx_v[1] };
-        vert_node[key0] = nod;
-        vert_node[key1] = nod;
-      }
-
-      else if ((key0 in vert_node) && (!(key1 in vert_node))) {
-        vert_node[key1] = vert_node[key0];
-      }
-
-      else if ((key1 in vert_node) && (!(key0 in vert_node))) {
-        vert_node[key0] = vert_node[key1];
-      }
-
-      // both appear, take min, overwrite values
+      // cur
       //
-      else {
-        var idx_v = __min_vert_nod(tri_idx, edge.src_edge[0], nei_idx, edge.dst_edge[1]);
-        idx_v = __min_vert_nod(vert_node[key0].idx, vert_node[key0].v, idx_v[0], idx_v[1]);
-        idx_v = __min_vert_nod(vert_node[key1].idx, vert_node[key1].v, idx_v[0], idx_v[1]);
-
-
-        if (debug) {
-        console.log("# add1 vert_node:", idx_v , tri_idx, edge.src_edge[0], nei_idx, edge.dst_edge[1]);
-        }
-
-
-        vert_node[key0].idx = idx_v[0];
-        vert_node[key0].v = idx_v[1];
-        vert_node[key1].idx = idx_v[0];
-        vert_node[key1].v = idx_v[1];
-      }
-
-      // ---
-      // again for the other end of the line segment
-
-      key0 = tri_idx + ":" + edge.src_edge[1];
-      key1 = nei_idx + ":" + edge.dst_edge[0];
-
-      if ( (!(key0 in vert_node)) && (!(key1 in vert_node)) ) {
-        var idx_v = __min_vert_nod(tri_idx, edge.src_edge[1], nei_idx, edge.dst_edge[0]);
-        var nod = { idx: idx_v[0], v: idx_v[1] };
-        vert_node[key0] = nod;
-        vert_node[key1] = nod;
-      }
-
-      else if ((key0 in vert_node) && (!(key1 in vert_node))) {
-        vert_node[key1] = vert_node[key0];
-      }
-
-      else if ((key1 in vert_node) && (!(key0 in vert_node))) {
-        vert_node[key0] = vert_node[key1];
-      }
-
-      // both appear, take min, overwrite values
+      if (!(key0 in canon_vert)) { canon_vert[key0] = { visited: false, idx: tri_idx, v: edge.src_edge[0], nei: {} }; }
+      if (!(key1 in canon_vert)) { canon_vert[key1] = { visited: false, idx: nei_idx, v: edge.dst_edge[1], nei: {} }; }
+      canon_vert[key0].nei[key1] = { src_idx: tri_idx, src_v: edge.src_edge[0], dst_idx: nei_idx, dst_v: edge.dst_edge[1], visited: false }
+      canon_vert[key1].nei[key0] = { src_idx: nei_idx, src_v: edge.dst_edge[1], dst_idx: tri_idx, dst_v: edge.src_edge[0], visited: false }
       //
-      else {
-        var idx_v = __min_vert_nod(tri_idx, edge.src_edge[1], nei_idx, edge.dst_edge[0]);
-        idx_v = __min_vert_nod(vert_node[key0].idx, vert_node[key0].v, idx_v[0], idx_v[1]);
-        idx_v = __min_vert_nod(vert_node[key1].idx, vert_node[key1].v, idx_v[0], idx_v[1]);
-
-        if (debug) {
-        console.log("# add2 vert_node:", idx_v ,tri_idx, edge.src_edge[1], nei_idx, edge.dst_edge[0]);
-        }
-
-        vert_node[key0].idx = idx_v[0];
-        vert_node[key0].v = idx_v[1];
-        vert_node[key1].idx = idx_v[0];
-        vert_node[key1].v = idx_v[1];
-      }
+      // cur
 
     }
   }
 
+  var vert_node = {};
+  this._find_canon_vert(canon_vert, vert_node);
+
+  // Fill in verticies which only have a single representation
+  //
   for (var tri_idx in group.tri_idx_map) {
     for (var ii=0; ii<3; ii++) {
       var key = tri_idx + ":" + ii;
@@ -1448,7 +1445,7 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
     x = group.tri_idx_map[src_idx].tri2d[src_v][0];
     y = group.tri_idx_map[src_idx].tri2d[src_v][1];
 
-    border.push( [x,y] );
+    border.push( [x,y, { idx: src_idx, v: src_v }] );
 
     cur_vert = dst_idx + ":" + dst_v;
 
@@ -1492,6 +1489,30 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   */
 }
 
+PepacatModel.prototype.TriGroupAdorn = function(tri_idx, adorn_info) {
+  var default_adorn_info = { shape : "trapezoid", angle : 2*Math.PI/3 };
+  adorn_info = ((typeof adorn_info === "undefined") ? default_adorn_info : adorn_info );
+
+  var boundary = this._skel_boundary(tri_idx);
+
+  var gn = this.TriGroupName(tri_idx);
+  var g = this.trigroup2d[gn];
+
+  for (var tri_idx in g.tri_idx_map) {
+    g.tri_idx_map[tri_idx].adorn[0] = "none";
+    g.tri_idx_map[tri_idx].adorn[1] = "none";
+    g.tri_idx_map[tri_idx].adorn[2] = "none";
+  }
+
+  for (var ii=0, il=boundary.length; ii<il; ii++) {
+    var idx = boundary[ii][2].idx;
+    var v = boundary[ii][2].v;
+
+    g.tri_idx_map[idx].adorn[v] = "trapezoid";
+  }
+
+}
+
 PepacatModel.prototype.TriGroupUnfold = function(group_name, debug) {
   //debug = (((typeof debug) === "undefined") ? false : debug);
 
@@ -1514,8 +1535,6 @@ PepacatModel.prototype.TriGroupUnfold = function(group_name, debug) {
   // when we use vertices as keys.
   //
   var m = this.trigroup2d[group_name].tri_idx_map;
-
-  //this._force_joint_match(anch_tri_idx);
 }
 
 function _key2d(x,y,S) {
@@ -2570,18 +2589,7 @@ function test8() {
 
   var group_name = gg.TriGroupName(tri_idxs[0]);
 
-  // deprecated
-  //var ab = gg._force_joint_match(group_name);
-
-  //var vert_node = ab[0];
-  //var vert_pop_map = ab[1];
-
-  //console.log(JSON.stringify(vert_node));
-  //console.log(JSON.stringify(vert_pop_map));
-
   console.log("#deprecated...");
-
-
 }
 
 function test9() {
@@ -2619,11 +2627,18 @@ function test9() {
 
   console.log("#...");
 
-  var debug = false;
+  var debug = true;
 
   var rep_tri = 7;
 
   var boundary = gg._skel_boundary(rep_tri, debug);
+
+  if ((typeof boundary === "undefined") || (boundary.length==0)) {
+    console.log("ERROR: boundary undefined or 0 length:", JSON.stringify(boundary));
+    return null;
+  }
+
+
   for (var ii=0, il=boundary.length; ii<il; ii++) {
     console.log(boundary[ii][0], boundary[ii][1]);
   }
@@ -2658,11 +2673,31 @@ function test10() {
 
 }
 
+// daorn test
+function test11() {
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+
+  gg.HeuristicUnfold();
+
+  gg.TriGroupAdorn(276);
+
+  var gn = gg.TriGroupName(276);
+
+  for (var tri_idx in gg.trigroup2d[gn].tri_idx_map) {
+    console.log(tri_idx,
+        gg.trigroup2d[gn].tri_idx_map[tri_idx].adorn[0],
+        gg.trigroup2d[gn].tri_idx_map[tri_idx].adorn[1],
+        gg.trigroup2d[gn].tri_idx_map[tri_idx].adorn[2]);
+  }
+
+}
+
 if (typeof module !== 'undefined') {
   console.log("#TESTING", MODEL_FN);
-  //test6();
+  test9();
   //test7();
-  test10();
+  //test11();
 }
 
 //test6();

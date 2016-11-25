@@ -26,6 +26,7 @@ var g_threeD_state = {
   dirty: false,
 
   firstmousedown : true,
+  mouse_in_window: false,
 
   cameraR : 3.0,
 
@@ -222,10 +223,12 @@ function init_threeD_window() {
 
   $(g_container).mouseenter( function(ev) {
     g_threeD_state.focus = true;
+    g_threeD_state.mouse_in_window = true;
   });
 
   $(g_container).mouseleave( function(ev) {
     g_threeD_state.focus = false;
+    g_threeD_state.mouse_in_window = false;
   });
 
   g_container.addEventListener( 'mouseup', onMouseUp, false );
@@ -551,11 +554,13 @@ function render() {
 
   // slow but we can fix later if it's a problem
   //
-  threeD_unhighlight_tri();
+  if (g_threeD_state.focus) {
+    threeD_unhighlight_tri();
+  }
 
   //pick testing
   //
-  if (g_threeD_state.focus || g_threeD_state.dirty) {
+  if (g_threeD_state.mouse_in_window && (g_threeD_state.focus || g_threeD_state.dirty)) {
 
     g_raycaster.setFromCamera( g_mouse, g_camera );
     var intersects = g_raycaster.intersectObjects( g_scene.children );
@@ -564,8 +569,10 @@ function render() {
 
     if (intersects.length==0) {
       if (g_threeD_state.tri_idx != -1) {
-        g_world.clearHighlight();
-        threeD_unhighlight_tri();
+        if (g_threeD_state.focus) {
+          g_world.clearHighlight();
+          threeD_unhighlight_tri();
+        }
       }
     }
 
@@ -602,8 +609,10 @@ function render() {
       threeD_highlight_tri(hit_tri);
     } else {
       if (g_threeD_state.tri_idx != -1) {
-        g_world.clearHighlight();
-        threeD_unhighlight_tri();
+        if (g_threeD_state.focus) {
+          g_world.clearHighlight();
+          threeD_unhighlight_tri();
+        }
       }
     }
 

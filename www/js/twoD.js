@@ -49,6 +49,10 @@ function world(canvas_param) {
 
   this.pepacatModel = { init_flag:false };
 
+  this.geom = [];
+  this.grid = [];
+  this.geom_adorn = [];
+
   this.boundary_highlight = [];
   this.geom_highlight = [];
   this.draw_highlight = false;
@@ -64,6 +68,7 @@ function world(canvas_param) {
 
   this.geom_bbox = [];
 
+
   this.focus = false;
 
   this.state = '';
@@ -78,16 +83,36 @@ function world(canvas_param) {
       line_alpha : 0.5
     },
     tri : {
-
       line_width : 2,
       line_color : 0x777777,
       line_alpha : 0.5
     },
     highlight: {
-      line_width : 3,
+      //line_width : 3,
+      line_width : 5,
       line_color : 0x770000,
-      line_alpha : 0.5,
-      fill_color : 0x550000
+      //line_alpha : 0.15,
+      line_alpha : 0.50,
+
+      fill_width : 0,
+      fill_color : 0x770000,
+      fill_color : 0x550000,
+      fill_alpha : 0.25,
+
+      cut_line_width : 10,
+      //cut_line_color : 0x778800,
+      //cut_line_color : 0x11aa22,
+      cut_line_color : 0xffee00,
+      cut_line_alpha : 0.9,
+      cut_fill_color : 0x550000,
+
+      glue_line_width : 10,
+      glue_line_color : 0x770000,
+      glue_line_alpha : 0.5,
+      //glue_fill_color : 0x550000
+      glue_line_color : 0x11aa22,
+
+
     },
     bbox : {
       line_width : 4,
@@ -134,6 +159,7 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
 
   this.geom = [];
   this.grid = [];
+  this.geom_adorn = [];
 
 
   /*
@@ -206,13 +232,13 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
   $(canvas_id).mouseenter( function(e) {
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
     self.focus = true;
-    //console.log(">mouseenter", xy[0], xy[1] );
+    g_threeD_state.mouse_in_window = false;
+    g_threeD_state.dirty = true;
   });
 
   $(canvas_id).mouseleave( function(e) {
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
     self.focus = false;
-    //console.log("mouseleave", xy[0], xy[1] );
   });
 
   $(canvas_id).mousemove( function(e) {
@@ -723,9 +749,14 @@ world.prototype.highlightCutEdge = function(src_idx, dst_idx) {
   var dst_pnt = this.w2D( src_tri[b][0], src_tri[b][1] );
 
 
-  var line_width = 10;
-  var line_color = 0x778800;
-  var line_alpha = 0.5;
+  //var line_width = 10;
+  //var line_color = 0x778800;
+  //var line_alpha = 0.5;
+
+  var line_width = this.config.highlight.cut_line_width / this.zoom;
+  var line_color = this.config.highlight.cut_line_color;
+  var line_alpha = this.config.highlight.cut_line_alpha;
+
 
 
   var ele = this.geom_edge_highlight;
@@ -765,9 +796,13 @@ world.prototype.highlightGlueEdge = function(src_idx, dst_idx) {
                           (dst_tri[edge.dst_edge[0]][1] + dst_tri[edge.dst_edge[1]][1])/2.0 );
 
 
-  var line_width = 10;
-  var line_color = 0x770000;
-  var line_alpha = 0.5;
+  //var line_width = 10;
+  //var line_color = 0x770000;
+  //var line_alpha = 0.5;
+
+  var line_width = this.config.highlight.glue_line_width / this.zoom;
+  var line_color = this.config.highlight.glue_line_color;
+  var line_alpha = this.config.highlight.glue_line_alhpa;
 
 
   var ele = this.geom_edge_highlight;
@@ -787,10 +822,10 @@ world.prototype.updateHighlight = function(tri_idx) {
   var group = this.pepacatModel.trigroup2d[gn];
   var boundary = this.pepacatModel.TriGroupBoundary(group);
 
-  //console.log(">>>>", gn, group.anchor_tri_idx, typeof(boundary));
+  //console.log(">>>>", tri_idx, gn, group.anchor_tri_idx, typeof(boundary));
 
   if ((typeof this.geom_highlight === "undefined") || (typeof boundary === "undefined")) {
-    console.log("updateHighlight >>>", this.geom_highlight, boundary, "group name (boudnary)", gn);
+    console.log("updateHighlight >>>", this.geom_highlight, boundary, "group name (boundary)", gn);
   }
 
   if (this.geom_highlight.length < boundary.length) {
@@ -865,10 +900,16 @@ world.prototype.drawHighlight = function() {
 
     //console.log(">>>", tri_idx, JSON.stringify(v0), JSON.stringify(v1), JSON.stringify(v2) );
 
+    //var fill_alpha = 0.25;
+    var fill_color = this.config.highlight.fill_color;
+    var fill_width = this.config.highlight.fill_width;
+    var fill_alpha = this.config.highlight.fill_alpha;
+
     this.geom_highlight_tri.clear();
     this.geom_highlight_tri.renderable=true;
-    this.geom_highlight_tri.beginFill(fill_color);
-    this.geom_highlight_tri.lineStyle(line_width, line_color, line_alpha);
+    this.geom_highlight_tri.beginFill(fill_color, fill_alpha);
+    this.geom_highlight_tri.lineStyle(fill_width, fill_color, fill_alpha);
+    //this.geom_highlight_tri.lineStyle(0, fill_color, fill_alpha);
     this.geom_highlight_tri.moveTo(v0[0], v0[1]);
     this.geom_highlight_tri.lineTo(v1[0], v1[1]);
     this.geom_highlight_tri.lineTo(v2[0], v2[1]);
@@ -884,14 +925,21 @@ world.prototype.drawGeometry = function() {
 
   var tri2d = [];
   var T = [];
+  var adorn = [];
 
-  line_count=0;
+  var tab_count = 0;
+  var line_count=0;
   for (var gname in tg2d) {
     var gr = tg2d[gname];
     for (var tri_idx in gr.tri_idx_map) {
       tri2d = gr.tri_idx_map[tri_idx].tri2d;
       T = gr.tri_idx_map[tri_idx].T;
+      adorn = gr.tri_idx_map[tri_idx].adorn;
       line_count+=3;
+
+      for (var ii=0; ii<3; ii++) {
+        if (adorn[ii] != "none") { tab_count++; }
+      }
     }
   }
 
@@ -904,6 +952,17 @@ world.prototype.drawGeometry = function() {
     }
 
   }
+
+  if (tab_count > this.geom_adorn.length) {
+    for (var ii=this.geom_adorn.length; ii<tab_count; ii++) {
+      var geom_ele = new PIXI.Graphics();
+      geom_ele.clear();
+      geom_ele.renderable = false;
+      this.geom_adorn.push(geom_ele);
+      this.stage.addChild(this.geom_adorn[ii]);
+    }
+  }
+
 
   //var line_alpha = 0.5;
   //var line_width = 1;
