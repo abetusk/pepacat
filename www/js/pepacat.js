@@ -1252,8 +1252,8 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   var canon_vert = {};
 
   // Verticies overlap on triangles, sometimes more than two (think of a 'fan').
-  // In order to trace the boundary in order, we need to find which boundary
-  // edges are valid and then trace them in order.
+  // To trace the boundary in order, we need to find which boundary
+  // edges are valid (actually on boundaires) and which are 'internal'.
   // We want to take a representative vertex to use as boundary point.
   // canon_vert creates the data structure that holds 'neighboring' vertices that
   // sit on top of each other so we can populate vert_node with the canonical name
@@ -1266,18 +1266,15 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
       var key0 = tri_idx + ":" + edge.src_edge[0];
       var key1 = nei_idx + ":" + edge.dst_edge[1];
 
-      // cur
-      //
       if (!(key0 in canon_vert)) { canon_vert[key0] = { visited: false, idx: tri_idx, v: edge.src_edge[0], nei: {} }; }
       if (!(key1 in canon_vert)) { canon_vert[key1] = { visited: false, idx: nei_idx, v: edge.dst_edge[1], nei: {} }; }
       canon_vert[key0].nei[key1] = { src_idx: tri_idx, src_v: edge.src_edge[0], dst_idx: nei_idx, dst_v: edge.dst_edge[1], visited: false }
       canon_vert[key1].nei[key0] = { src_idx: nei_idx, src_v: edge.dst_edge[1], dst_idx: tri_idx, dst_v: edge.src_edge[0], visited: false }
-      //
-      // cur
-
     }
   }
 
+  // populate vert_node with the representative name for each vertex 'cluster'.
+  //
   var vert_node = {};
   this._find_canon_vert(canon_vert, vert_node);
 
@@ -1326,7 +1323,7 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   var key0, key1, key_v0, key_v1, edge_key;
   var src_idx, dst_idx, src_v, dst_v;
 
-  // init
+  // initialize border edge map (to all true)
   //
   for (var tri_idx in group.tri_idx_map) {
     for (var ii=0; ii<3; ii++) {
@@ -1343,12 +1340,22 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
       key_v0 = vert_node[key0].idx + ":" + vert_node[key0].v;
       key_v1 = vert_node[key1].idx + ":" + vert_node[key1].v;
       edge_key = key_v0 + ";" + key_v1;
-      border_edge[edge_key] = { src_idx : src_idx, dst_idx: dst_idx, src_v: src_v, dst_v: dst_v, border : true, visited: false };
+      border_edge[edge_key] = {
+        src_idx : src_idx,
+        src_v: src_v,
+        dst_idx: dst_idx,
+        dst_v: dst_v,
+        orig_idx: tri_idx,
+        orig_v: ii,
+        border: true,
+        visited: false
+      };
     }
   }
 
 
-
+  // mark edges that aren't on the border as not border edges.
+  //
   var tot_edge_count = 0;
   for (var tri_idx in group.tri_idx_map) {
 
@@ -1377,6 +1384,9 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   var cur_vert = null;
   var vert_jump = {};
 
+  // Create the vert_jump map that we'll use to traverse the vertices on 
+  // the border.
+  //
   var border_edge_count = 0;
   for (var k in border_edge) {
     if (debug) {
@@ -1407,7 +1417,16 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
     }
 
 
-    vert_jump[src_key] = { dst_key:dst_key, src_idx: src_idx, src_v: src_v, dst_idx: dst_idx, dst_v: dst_v, visited: false };
+    vert_jump[src_key] = {
+      src_idx: src_idx,
+      src_v: src_v,
+      dst_key:dst_key,
+      dst_idx: dst_idx,
+      dst_v: dst_v,
+      orig_idx: border_edge[k].orig_idx,
+      orig_v: border_edge[k].orig_v,
+      visited: false
+    };
     if (!cur_vert) { cur_vert = src_idx + ":" + src_v; }
 
     if (debug) {
@@ -1429,6 +1448,15 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   }
   }
 
+  //DEBUG
+  var adorn_state = "tab";
+
+  var first_x, first_y;
+  var prev_x, prev_y;
+  var first = true;
+
+  // finally walk the vert_jump map to create the border
+  //
   var visited_count=0;
   while (!vert_jump[cur_vert].visited) {
     vert_jump[cur_vert].visited = true;
@@ -1442,10 +1470,26 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
     dst_idx = nod.dst_idx;
     dst_v   = nod.dst_v;
 
+    var orig_idx = nod.orig_idx;
+    var orig_v = nod.orig_v;
+
     x = group.tri_idx_map[src_idx].tri2d[src_v][0];
     y = group.tri_idx_map[src_idx].tri2d[src_v][1];
 
-    border.push( [x,y, { idx: src_idx, v: src_v }] );
+    var nx = group.tri_idx_map[src_idx].tri2d[(src_v+1)%3][0];
+    var ny = group.tri_idx_map[src_idx].tri2d[(src_v+1)%3][1];
+
+    if (adorn_state == "skel") {
+      border.push( [x,y, { idx: src_idx, v: src_v }] );
+    }
+    else if (adorn_state == "tab") {
+      if (!first) {
+        var adorn_type = group.tri_idx_map[orig_idx].adorn[orig_v];
+        if (adorn_type == "trapezoid") {
+          this._adorn_2d(border, adorn_type, prev_x, prev_y, x, y, { angle: Math.PI/3 });
+        }
+      }
+    }
 
     cur_vert = dst_idx + ":" + dst_v;
 
@@ -1454,6 +1498,21 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
       return null;
     }
 
+    if (first) {
+      first_x = x;
+      first_y = y;
+    }
+
+    prev_x = x;
+    prev_y = y;
+    first = false;
+  }
+
+  if (adorn_state == "tab") {
+    border.push([prev_x, prev_y]);
+
+    //debug
+    border.push([first_x, first_y]);
   }
 
   if (debug) {
@@ -1465,28 +1524,38 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   }
 
   return border;
+}
 
-  /*
-  // Go through population, setting the vertex to the representative
-  //
-  for (var rep_key in vert_pop_map) {
-    var idx_v = rep_key.split(/:/);
-    var rep_idx = parseInt(idx_v[0]);
-    var rep_v = parseInt(idx_v[1]);
-
-    for (var snap_key in vert_pop_map[rep_key]) {
-      idx_v = snap_key.split(/:/);
-      var idx = parseInt(idx_v[0]);
-      var v = parseInt(idx_v[1]);
-
-      group.tri_idx_map[idx].tri2d[v][0] = group.tri_idx_map[rep_idx].tri2d[rep_v][0];
-      group.tri_idx_map[idx].tri2d[v][1] = group.tri_idx_map[rep_idx].tri2d[rep_v][1];
-    }
-
+PepacatModel.prototype._adorn_2d = function(boundary, adorn_type, x0, y0, x1, y1, info) {
+  if (adorn_type == "none") {
+    boundary.push([x0,y0]);
+    return;
   }
 
-  return [vert_node, vert_pop_map];
-  */
+  var ang = Math.PI/3;
+  var f = 0.8;
+
+  if (adorn_type == "trapezoid") {
+    var dvx = x1-x0;
+    var dvy = y1-y0;
+
+    var c = Math.cos(ang);
+    var s = Math.sin(ang);
+
+    var rx =  c*dvx + s*dvy;
+    var ry = -s*dvx + c*dvy;
+
+    var l = Math.sqrt(dvx*dvx + dvy*dvy);
+    var tl = l * f;
+    //var r = l / c;
+    var r = (1-f) / (2*c);
+
+    boundary.push([x0,y0]);
+    boundary.push([ x0+r*rx, y0+r*ry ]);
+    boundary.push([ x0+r*rx + f*dvx, y0+r*ry + f*dvy ]);
+    return;
+
+  }
 }
 
 PepacatModel.prototype.TriGroupAdorn = function(tri_idx, adorn_info) {
@@ -2639,9 +2708,12 @@ function test9() {
   }
 
 
+  console.log("### >>>>boundary");
+  
   for (var ii=0, il=boundary.length; ii<il; ii++) {
     console.log(boundary[ii][0], boundary[ii][1]);
   }
+  console.log("### <<<<boundary");
 
   var gn = gg.TriGroupName(rep_tri);
   var gr = gg.trigroup2d[gn];
