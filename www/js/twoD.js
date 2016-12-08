@@ -820,7 +820,8 @@ world.prototype.highlightGlueEdge = function(src_idx, dst_idx) {
 world.prototype.updateHighlight = function(tri_idx) {
   var gn = this.pepacatModel.TriGroupName(tri_idx);
   var group = this.pepacatModel.trigroup2d[gn];
-  var boundary = this.pepacatModel.TriGroupBoundary(group);
+  //var boundary = this.pepacatModel.TriGroupBoundary(group);
+  var boundary = this.pepacatModel.TriGroupBoundary(group, "tab");
 
   //console.log(">>>>", tri_idx, gn, group.anchor_tri_idx, typeof(boundary));
 

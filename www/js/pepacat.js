@@ -1,5 +1,5 @@
 /* library for pepacat.
- *    
+ *
  * - flatten triangles onto plane
  * - join triangle strips
  * - test for self intersection (requires clipperlib)
@@ -372,6 +372,12 @@ function PepacatModel() {
   //
   this.tri_adjmap = {};
 
+  // Adornment information for each edge.
+  // This holds the 'meta' information, which edge has which
+  // adornment, information about each adornment, etc.
+  //
+  this.edge2d_adorn = {};
+
   // 2d layers for unfolding and rendering
   //
   this.layer2d = {
@@ -409,11 +415,10 @@ function PepacatModel() {
   //       T : transform of triangle (2d)
   //       adorn : array of tab adornments ("none", "trapezoid") for each edge (idx,idx+1).
   //       visited : internal use when updating group
-  //        
+  //
   //
   this.trigroup2d = {};
 
-  this.edge3d_adjmap = {};
   this.tri_idx_trigroup_lookback = {};
 
 }
@@ -502,7 +507,7 @@ PepacatModel.prototype.LoadModel = function(_verts, _norms) {
     if ((norm[0]*norm[0] + norm[1]*norm[1] + norm[2]*norm[2]) < 0.5) {
       this.trn3d.push(n.elements);
     }
-   
+
     // Otherwise make sure the normal directions smatch.  If they don't,
     // re-orient the stored vectors.
     //
@@ -561,6 +566,7 @@ PepacatModel.prototype.LoadModel = function(_verts, _norms) {
 
   }
 
+  this.tri_adorn = {};
   this.edge3d_adjmap = adjmap;
 
   for (var key in adjmap) {
@@ -574,15 +580,38 @@ PepacatModel.prototype.LoadModel = function(_verts, _norms) {
     var idx0 = info[0].tri_index;
     var idx1 = info[1].tri_index;
 
+    var edge_adorn = {
+      shape: "trapezoid",
+      angle: Math.PI/4,
+      policy: "alternate",
+      idx: 0,
+      tri_index: [idx0, idx1],
+      edge: [info[0].edge[0], info[1].edge[1]]
+    };
+
     if (!(idx0 in this.tri_adjmap)) {
       this.tri_adjmap[idx0] = {};
     }
-    this.tri_adjmap[idx0][idx1] = { "src_edge" : info[0].edge, "dst_edge" : info[1].edge };
+    this.tri_adjmap[idx0][idx1] = {
+      src_edge: info[0].edge,
+      dst_edge: info[1].edge,
+      adorn: edge_adorn
+    };
+
+    if (!(idx0 in this.tri_adorn)) { this.tri_adorn[idx0] = {}; }
+    this.tri_adorn[idx0][info[0].edge[0]] = edge_adorn;
 
     if (!(idx1 in this.tri_adjmap)) {
       this.tri_adjmap[idx1] = {};
     }
-    this.tri_adjmap[idx1][idx0] = { "src_edge" : info[1].edge, "dst_edge" : info[0].edge };
+    this.tri_adjmap[idx1][idx0] = {
+      src_edge: info[1].edge,
+      dst_edge: info[0].edge,
+      adorn: edge_adorn
+    };
+
+    if (!(idx1 in this.tri_adorn)) { this.tri_adorn[idx1] = {}; }
+    this.tri_adorn[idx1][info[1].edge[0]] = edge_adorn;
   }
 
   this.tri_idx_trigroup_lookback = {};
@@ -613,6 +642,8 @@ PepacatModel.prototype.LoadModel = function(_verts, _norms) {
 
     this.tri_idx_trigroup_lookback[idx] = trigroupname;
   }
+
+  //for (var idx=0; idx<this.tr
 
   return this;
 }
@@ -834,7 +865,7 @@ PepacatModel.prototype.FindEdge = function(src_tri_idx, dst_tri_idx) {
   for (var ii=0; ii<3; ii++) {
     var jj = (ii+1)%3;
 
-    var key = 
+    var key =
       String(Math.round(m*verts[ii][0])) + "," +
       String(Math.round(m*verts[ii][1])) + "," +
       String(Math.round(m*verts[ii][2])) +
@@ -1241,7 +1272,8 @@ PepacatModel.prototype._find_canon_vert = function(canon_vert, vert_node) {
 
 // Create the boundary without any decorations.
 //
-PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
+PepacatModel.prototype._skel_boundary = function(tri_idx, boundary_type, debug) {
+  boundary_type = ((typeof boundary_type === "undefined") ? "skel" : boundary_type);
   debug = ((typeof debug === "undefined") ? false : debug);
   var group_name = this.TriGroupName(tri_idx);
   var group = this.trigroup2d[group_name];
@@ -1384,7 +1416,7 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   var cur_vert = null;
   var vert_jump = {};
 
-  // Create the vert_jump map that we'll use to traverse the vertices on 
+  // Create the vert_jump map that we'll use to traverse the vertices on
   // the border.
   //
   var border_edge_count = 0;
@@ -1448,9 +1480,6 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   }
   }
 
-  //DEBUG
-  var adorn_state = "tab";
-
   var first_x, first_y;
   var prev_x, prev_y;
   var first = true;
@@ -1479,14 +1508,24 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
     var nx = group.tri_idx_map[src_idx].tri2d[(src_v+1)%3][0];
     var ny = group.tri_idx_map[src_idx].tri2d[(src_v+1)%3][1];
 
-    if (adorn_state == "skel") {
-      border.push( [x,y, { idx: src_idx, v: src_v }] );
+    if (boundary_type == "skel") {
+      //border.push( [x,y, { idx: src_idx, v: src_v }] );
+      border.push([x,y]);
     }
-    else if (adorn_state == "tab") {
+    else if (boundary_type == "tab") {
       if (!first) {
-        var adorn_type = group.tri_idx_map[orig_idx].adorn[orig_v];
+        var adorn_type = this._get_adorn(orig_idx, orig_v);
+
+        //console.log("#", adorn_type);
+
+        //var adorn_type = group.tri_idx_map[orig_idx].adorn[orig_v];
         if (adorn_type == "trapezoid") {
           this._adorn_2d(border, adorn_type, prev_x, prev_y, x, y, { angle: Math.PI/3 });
+        }
+        else if (adorn_type == "none") {
+          //border.push( [x,y, { idx: src_idx, v: src_v }] );
+          //border.push([x,y]);
+          border.push([prev_x,prev_y]);
         }
       }
     }
@@ -1508,11 +1547,11 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
     first = false;
   }
 
-  if (adorn_state == "tab") {
+  if (boundary_type == "tab") {
     border.push([prev_x, prev_y]);
 
     //debug
-    border.push([first_x, first_y]);
+    //border.push([first_x, first_y]);
   }
 
   if (debug) {
@@ -1524,6 +1563,14 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, debug) {
   }
 
   return border;
+}
+
+PepacatModel.prototype._get_adorn = function(tri_idx, tri_v) {
+  if (!(tri_idx in this.tri_adorn)) { return "none" };
+  if (!(tri_v in this.tri_adorn[tri_idx])) { return "none" };
+  var a = this.tri_adorn[tri_idx][tri_v];
+  if (a.edge[a.idx] == tri_v) { return a.shape; }
+  return "none";
 }
 
 PepacatModel.prototype._adorn_2d = function(boundary, adorn_type, x0, y0, x1, y1, info) {
@@ -1556,6 +1603,7 @@ PepacatModel.prototype._adorn_2d = function(boundary, adorn_type, x0, y0, x1, y1
     return;
 
   }
+
 }
 
 PepacatModel.prototype.TriGroupAdorn = function(tri_idx, adorn_info) {
@@ -1642,7 +1690,7 @@ PepacatModel.prototype.TriGroupMaxArea = function(group) {
 PepacatModel.prototype.TriGroupClipArea = function(group) {
   var g = group;
 
-  var boundary = this.TriGroupBoundary(group);
+  var boundary = this.TriGroupBoundary(group, "skel");
   var S = this.info.premul;
 
   var clip_boundary = [];
@@ -1666,7 +1714,7 @@ PepacatModel.prototype.TriGroupClipArea = function(group) {
 // Walk the boundary of the triangle group, adding to an array of
 // 2d points (array of arrays) to ultimately return.
 //
-PepacatModel.prototype.TriGroupBoundary = function(group) {
+PepacatModel.prototype.TriGroupBoundary = function(group, boundary_type) {
   var have_rep_tri = false;
   var rep_tri = null;
 
@@ -1677,7 +1725,7 @@ PepacatModel.prototype.TriGroupBoundary = function(group) {
   }
 
   if (!(have_rep_tri)) { return []; }
-  return this._skel_boundary(rep_tri);
+  return this._skel_boundary(rep_tri, boundary_type);
 }
 
 PepacatModel.prototype._TriGroupBoundary = function(group) {
@@ -2106,7 +2154,7 @@ PepacatModel.prototype.JoinTriangle = function(fix_tri_idx, mov_tri_idx, debug) 
   // Joine the two groups along the edge for the two trianlges selected and
   // update misc. information (dirty, bbox).
   //
-  fix_trigroup.tri_idx_map[fix_tri_idx].nei_tri_idx_map[mov_tri_idx] = 
+  fix_trigroup.tri_idx_map[fix_tri_idx].nei_tri_idx_map[mov_tri_idx] =
     { "src_edge" : [fix_edge[0], fix_edge[1]], "dst_edge": [mov_edge[0], mov_edge[1]] };
   fix_trigroup.tri_idx_map[mov_tri_idx].nei_tri_idx_map[fix_tri_idx] =
     { "src_edge" : [mov_edge[0], mov_edge[1]], "dst_edge": [fix_edge[0], fix_edge[1]] };
@@ -2526,7 +2574,7 @@ PepacatModel.prototype.HeuristicUnfold = function(info) {
 
 
   }
- 
+
 }
 
 function test6() {
@@ -2681,7 +2729,7 @@ function test9() {
     if (sched[ii].a == 'j') {
       gg.JoinTriangle(sched[ii].t[0], sched[ii].t[1]);
     } else if (sched[ii].a == 's') {
-      gg.SplitTriangle(sched[ii].t[0], sched[ii].t[1], true);
+      gg.SplitTriangle(sched[ii].t[0], sched[ii].t[1]);
     }
 
     /*
@@ -2696,11 +2744,12 @@ function test9() {
 
   console.log("#...");
 
-  var debug = true;
+  var debug = false;
 
   var rep_tri = 7;
 
-  var boundary = gg._skel_boundary(rep_tri, debug);
+  //var boundary = gg._skel_boundary(rep_tri, "skel", debug);
+  var boundary = gg._skel_boundary(rep_tri, "tab", debug);
 
   if ((typeof boundary === "undefined") || (boundary.length==0)) {
     console.log("ERROR: boundary undefined or 0 length:", JSON.stringify(boundary));
@@ -2709,14 +2758,17 @@ function test9() {
 
 
   console.log("### >>>>boundary");
-  
+
   for (var ii=0, il=boundary.length; ii<il; ii++) {
     console.log(boundary[ii][0], boundary[ii][1]);
   }
   console.log("### <<<<boundary");
 
+  return;
+
   var gn = gg.TriGroupName(rep_tri);
   var gr = gg.trigroup2d[gn];
+
 
   var _b = gg.TriGroupBoundary(gr);
   console.log("");
@@ -2765,11 +2817,32 @@ function test11() {
 
 }
 
+function test12() {
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+  gg.HeuristicUnfold();
+
+  gg.JoinTriangle(226, 8);
+
+  var debug=true;
+
+  var boundary = gg._skel_boundary(8, "tab", debug);
+
+  console.log("### >>>>boundary");
+
+  for (var ii=0, il=boundary.length; ii<il; ii++) {
+    console.log(boundary[ii][0], boundary[ii][1]);
+  }
+  console.log("### <<<<boundary");
+
+}
+
 if (typeof module !== 'undefined') {
   console.log("#TESTING", MODEL_FN);
-  test9();
+  //test9();
   //test7();
   //test11();
+  test12();
 }
 
 //test6();
