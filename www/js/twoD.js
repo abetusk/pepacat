@@ -1,6 +1,7 @@
 
 function world(canvas_param) {
-  this.canvas_name = "canvas";
+  //this.canvas_name = "canvas";
+  this.canvas_name = "id_canvas";
   if (typeof canvas_param !== "undefined") {
     this.canvas_name = canvas_param;
   }
@@ -9,6 +10,9 @@ function world(canvas_param) {
   this.tool = null;
 
   this.canvas = document.getElementById(this.canvas_name);
+
+  console.log("??", this.canvas, this.canvas_name);
+
 
   this.width = this.canvas.width;
   this.height = this.canvas.height;
@@ -161,6 +165,10 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
   this.grid = [];
   this.geom_adorn = [];
 
+  console.log("init");
+
+  this.stage.mousedown = function() { console.log("FFFFFFFUUUUUUUUUUUUCCCCCCCCCCCKKKKKKKKKKKKKK YOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU"); };
+  this.stage.on("mousedown", function() { console.log("FUCK YOU"); });
 
   /*
   for (var ii=0; ii<10; ii++) {
@@ -191,8 +199,43 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
   //
   var canvas_id = "#" + this.canvas_name;
 
-  $(canvas_id).mouseup( function(e) {
+  console.log("???", canvas_id);
+  
+  /*
+  $(canvas_id).click( function(e) {
+    console.log("click", e);
+
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
+
+    var x = xy[0];
+    var y = xy[1];
+
+    if (self.tool) {
+      self.tool.mousedown(e.which, x, y);
+      return;
+    }
+
+
+    self.mouse_down = true;
+    self.mouse_drag = true;
+    var world_coord = self.devToWorld(x,y);
+
+
+
+  });
+*/
+
+  $(canvas_id).on("mouseup", function(e) {
+    console.log("mouseup...");
+  });
+
+  $(canvas_id).mouseup( function(e) {
+
+    console.log("mouseup");
+
+    var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
+
+    console.log("++", xy);
 
     if (self.tool) {
       self.tool.mouseup(e.which, xy[0], xy[1]);
@@ -205,11 +248,25 @@ world.prototype.init = function(canvas, w, h, bgcolor) {
     //console.log(">mouseup", e.which, xy[0], xy[1]);
   });
 
+  $("#fuck0").mousedown( function(e) { console.log("fuck0"); });
+  $("#fuck1").mousedown( function(e) { console.log("fuck1"); });
+  $("#fuck2").mousedown( function(e) { console.log("fuck2"); });
+  $("#fuck3").mousedown( function(e) { console.log("fuck3"); });
+  $("#fuck4").mousedown( function(e) { console.log("fuck4"); });
+  //$("#fuck5").mousedown( function(e) { console.log("fuck5"); });
+  //$("#fuck6").mousedown( function(e) { console.log("fuck6"); });
+
   $(canvas_id).mousedown( function(e) {
+
+    console.log("???", e);
+    return true;
+
     var xy = self.canvas_coords_from_global( e.pageX, e.pageY );
 
     var x = xy[0];
     var y = xy[1];
+
+    console.log("mmdd(--)", x, y);
 
     if (self.tool) {
       self.tool.mousedown(e.which, x, y);
@@ -532,7 +589,7 @@ world.prototype.drawGrid = function() {
 
 //var g_world = { init_flag:false };
 function init_twoD_window() {
-  g_world = new world("canvas");
+  g_world = new world("id_canvas");
   init_debug();
   //requestAnimationFrame(loop2d);
   return loop2d;

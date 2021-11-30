@@ -257,7 +257,8 @@ function init_threeD_window() {
   });
 
 
-  loader.load( './models/Bunny-LowPoly.stl', function ( geometry ) {
+  //loader.load( './models/Bunny-LowPoly.stl', function ( geometry ) {
+  loader.load( './models/torus.stl', function ( geometry ) {
     var verts = geometry.attributes.position.array;
     var norms = geometry.attributes.normal.array;
 

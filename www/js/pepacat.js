@@ -31,7 +31,8 @@ if (typeof module !== 'undefined') {
   clipper = require("./clipper.js");
   var ClipperLib = clipper;
 
-  var MODEL_FN = "../../www/models/Bunny-LowPoly.stl";
+  //var MODEL_FN = "../../www/models/Bunny-LowPoly.stl";
+  var MODEL_FN = "../../www/models/torus.stl";
   var HERSHEY_FN = "../../www/data/utf8_hershey.json";
 
   var hershey_font = JSON.parse(fs.readFileSync(HERSHEY_FN));
@@ -81,6 +82,28 @@ function PepacatModel() {
   //   idx:         unused?
   //   tri_index:   [ tri0, tri1 ]
   //   edge         [ [ edge0.0, edge0.1 ], [ edge1.0, edge1.1 ] ]
+  //
+  // for example:
+  //   ...
+  //   "tri_adjmap": {
+  //     "0": {
+  //       "1": {
+  //         "src_edge": [2,0],
+  //         "dst_edge": [1,2],
+  //         "adorn": ...
+  //       },
+  //       "2": {
+  //         "src_edge": [1,2],
+  //         "dst_edge": [1,2],
+  //         "adorn":...
+  //       }
+  //     },
+  //     "1": {
+  //       "0": ...
+  //     }
+  //     ...
+  //   }
+  //   ...
   //
   //
   this.tri_adjmap = {};
@@ -157,6 +180,10 @@ function PepacatModel() {
 
 }
 
+//-----
+//-----
+//-----
+
 
 function _font_text_width(text, font, xsize) {
   var tally = 0;
@@ -174,7 +201,6 @@ function _font_text_width(text, font, xsize) {
 
   return tally;
 }
-
 
 
 // Draw 2d text with font (e.g. hershey).
@@ -435,11 +461,6 @@ function clipper_test2() {
   }
 
 }
-
-//clipper_test2();
-//process.exit();
-//TESTING
-
 
 function Area(tri) {
   var u = sly.Vector.create([ tri[1][0] - tri[0][0], tri[1][1] - tri[0][1], tri[1][2] - tri[0][2] ]);
@@ -1265,9 +1286,9 @@ PepacatModel.prototype.PrintTriGroup = function(group_name, dx, dy) {
   for (var tri_idx in g.tri_idx_map) {
     var ele = g.tri_idx_map[tri_idx];
     console.log( ele.tri2d[0][0] + dx, ele.tri2d[0][1] + dy );
-    console.log( ele.tri2d[1][0] + dx, ele.tri2d[1][1] + dy);
-    console.log( ele.tri2d[2][0] + dx, ele.tri2d[2][1] + dy);
-    console.log( ele.tri2d[0][0] + dx, ele.tri2d[0][1] + dy);
+    console.log( ele.tri2d[1][0] + dx, ele.tri2d[1][1] + dy );
+    console.log( ele.tri2d[2][0] + dx, ele.tri2d[2][1] + dy );
+    console.log( ele.tri2d[0][0] + dx, ele.tri2d[0][1] + dy );
     console.log("");
 
     var cx = 0, cy = 0;
@@ -1278,8 +1299,14 @@ PepacatModel.prototype.PrintTriGroup = function(group_name, dx, dy) {
     cx /= 3;
     cy /= 3;
 
-    PrintNum( parseInt(tri_idx), cx + dx, cy + dy);
+    continue;
 
+    //PrintNum( parseInt(tri_idx), cx + dx, cy + dy);
+
+    // try and print out some extra geometric information
+    // to be able to visually confirm correct joining of
+    // edges?
+    //
     for (var nei_tri_idx in ele.nei_tri_idx_map) {
       var nei_edge = g.tri_idx_map[tri_idx].nei_tri_idx_map[nei_tri_idx];
 
@@ -2733,6 +2760,9 @@ PepacatModel.prototype._heur_unfold2 = function(info, group_name, tri_idx) {
 
 }
 
+PepacatModel.prototype.HeuristicUnfold1 = function(info) {
+}
+
 PepacatModel.prototype.HeuristicUnfold = function(info) {
   if ((typeof info === "undefined")) {
     info = {
@@ -3091,16 +3121,224 @@ function test14() {
   gg.LoadSTLFile("../models/calib.stl");
 
   let jdat = gg.ExportJSON(undefined, 2);
-  console.log( jdat );
+  //console.log( jdat );
 
   let ok  = gg.Consistency();
-  console.log(">>>", ok);
+  //console.log(">>>", ok);
 
-  return;
+  let dx = 0;
+  let dy = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
 
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(0,1);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(0,1);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(2,3);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(2,3);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(0,1);
+  gg.JoinTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(0,1);
+  gg.SplitTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(0,1);
+  gg.JoinTriangle(0,2);
+  gg.JoinTriangle(0,3);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(0,1);
+  gg.SplitTriangle(0,2);
+  gg.SplitTriangle(0,3);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+
+  //--
+
+  dy += 4;
+  gg.JoinTriangle(0,1);
+  gg.JoinTriangle(2,3);
+  gg.JoinTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+  //--
+
+  dy += 4;
+  gg.SplitTriangle(0,1);
+  gg.SplitTriangle(2,3);
+  gg.SplitTriangle(1,2);
+
+  dx = 0;
+  for (let gkey in gg.trigroup2d) {
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    dx += 4;
+  }
+
+
+}
+
+function test15() {
+  var gg = new PepacatModel();
+
+  gg.LoadSTLFile("../models/torus.stl");
+
+  let jdat = gg.ExportJSON(undefined, 2);
+
+  let ok  = gg.Consistency();
+  console.log("###", ok);
+
+  let dx = 0, dy = 0;
+  let idx=0, idy=0;
+
+  for (let gkey in gg.trigroup2d) {
+    dx = 30*idx;
+    dy = 30*idy;
+
+    console.log("# group key >>>", gkey);
+    gg.PrintTriGroup(gkey, dx, dy);
+    idx++;
+    if (idx> 10) {
+      idy++;
+      idx=0;
+    }
+  }
+
+
+}
+
+function test16() {
+  var gg = new PepacatModel();
+
+  gg.LoadSTLFile("../models/calib.stl");
+
+  let jdat = gg.ExportJSON(undefined, 2);
+
+  let ok  = gg.Consistency();
 
   gg.HeuristicUnfold();
-
 
   var boundary = gg._skel_boundary(26, "tab");
 
@@ -3120,8 +3358,12 @@ if (typeof module !== 'undefined') {
   //test12();
   //console.log("#TESTING", MODEL_FN);
   //test13();
-  console.log("#testing ../models/calib.stl");
-  test14();
+
+  //console.log("#testing ../models/calib.stl");
+  //test14();
+
+  console.log("#testing ../models/torus.stl");
+  test15();
 }
 
 //test6();

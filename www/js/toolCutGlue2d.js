@@ -25,6 +25,8 @@ toolCutGlue2d.prototype.mousedown = function(button, mousex, mousey) {
 
   var pm = this.pepacat_model;
 
+  console.log("bang");
+
   var hit_info = this.hitinfo(x,y);
   if ((hit_info.hit) && (hit_info.has_nei)) {
 
@@ -210,6 +212,8 @@ toolCutGlue2d.prototype.hitinfo = function(x, y) {
 }
 
 toolCutGlue2d.prototype.mousemove = function(button, mousex, mousey) {
+
+  console.log("mosuemove");
 
   if (this.mouse_drag) {
     this.world.mouseDrag(mousex - this.mouse_cur_x, mousey - this.mouse_cur_y);
