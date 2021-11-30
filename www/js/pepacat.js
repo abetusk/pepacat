@@ -21,6 +21,7 @@ var PEPACAT_EPSILON = 0.000001;
 var PEPACAT_EPSILON_SQ = PEPACAT_EPSILON*PEPACAT_EPSILON;
 var sly = {}, clipper = {};
 
+
 if (typeof module !== 'undefined') {
 
   var stl = require("stl");
@@ -31,6 +32,9 @@ if (typeof module !== 'undefined') {
   var ClipperLib = clipper;
 
   var MODEL_FN = "../../www/models/Bunny-LowPoly.stl";
+  var HERSHEY_FN = "../../www/data/utf8_hershey.json";
+
+  var hershey_font = JSON.parse(fs.readFileSync(HERSHEY_FN));
 
 } else {
 
@@ -42,6 +46,253 @@ if (typeof module !== 'undefined') {
   clipper = ClipperLib;
 
 }
+
+function PepacatModel() {
+
+  this.tri_mesh_3d = [];
+  this.tri_geom_3d = [];
+
+  // Array of triangles from original model
+  // Immutable after first population.
+  //
+  this.tri3d = [];
+
+  // array of normals for each of the triangles.
+  // Immutable after first population.
+  //
+  this.trn3d = [];
+
+
+  // 2D flattened triangles from the 3d list.
+  // Meant to be pretty much immutable after initial flattening.
+  //
+  this.tri2d = [];
+
+
+  // Map edges to the triangles connected to them
+  //
+  this.edge3d_adjmap = {};
+
+  // key is src->dst tri index.  Element is src_edge, dst_edge and adorn.
+  // adorn -
+  //   shape:       trapezoid|...
+  //   angle:       radiens
+  //   policy:      alternate|double|...
+  //   idx:         unused?
+  //   tri_index:   [ tri0, tri1 ]
+  //   edge         [ [ edge0.0, edge0.1 ], [ edge1.0, edge1.1 ] ]
+  //
+  //
+  this.tri_adjmap = {};
+
+  // tri_adorn[tri_idx][tri_exge_vertex_base]
+  //   shape:       trapezoid|...
+  //   angle:       radiens
+  //   policy:      alternate|double|...
+  //   idx:         unused?
+  //   tri_index:   [ tri0, tri1 ]
+  //   edge         [ [ edge0.0, edge0.1 ], [ edge1.0, edge1.1 ] ]
+  //
+  this.tri_adorn = {};
+
+  // Adornment information for each edge.
+  // This holds the 'meta' information, which edge has which
+  // adornment, information about each adornment, etc.
+  //
+  this.edge2d_adorn = {};
+
+  // 2d layers for unfolding and rendering
+  //
+  this.layer2d = {
+    // base skeleton
+    //
+    "skel" : {},
+
+    // out boundary of cut item
+    //
+    "cut" : {},
+
+    // scoring
+    //
+    "score" : {}
+  };
+
+  this.info = {
+    "tab" : "trapezoid",
+    "tab_height": 0.125,
+    "tab_angle" : Math.PI/6.0,
+    "tab_x" : 0,
+
+    "print_sheet" : "A3",
+
+    "premul" : 10000000,
+
+    // "dashed"
+    "scoring": "solid",
+
+    // label tabs
+    "numbering": "tab"
+  };
+
+  this.info.tab_x = this.info.tab_height / Math.tan(this.info.tab_angle);
+
+  // key is the group name.
+  // trigroup2d[<name>]:
+  //   dirty : needs updating
+  //   anchor_tri_idx : index of triangle used to anchor realization
+  //   G :
+  //   bbox: bounding box of ralized triangle group
+  //   tri_idx_map[<tri_index>]:
+  //       nei_tri_idx_map : map of connected neightbors.  Elements are { src_edge : [ src0, src1 ], dst_edge : [ dst0, dst1 ] },
+  //                         where src is from tri_index, and dst is from the neighbor tri index
+  //       tri2d : realization of triangle (2d) (post tranfsormation, actual realization)
+  //       T : transform of triangle (2d)
+  //       adorn : array of tab adornments ("none", "trapezoid") for each edge (idx,idx+1).
+  //       visited : internal use when updating group
+  //
+  //
+  this.trigroup2d = {};
+
+  this.tri_idx_trigroup_lookback = {};
+
+}
+
+
+function _font_text_width(text, font, xsize) {
+  var tally = 0;
+  var scale = font.scale_factor;
+  xsize = parseFloat(xsize);
+
+  for (var i in text)
+  {
+    var ch_ord = text.charCodeAt(i);
+    var f = font[ch_ord];
+    if (typeof f === "undefined") { continue; }
+    var dx = xsize * (parseFloat(f.xsto) - parseFloat(f.xsta)) * scale ;
+    tally += dx;
+  }
+
+  return tally;
+}
+
+
+
+// Draw 2d text with font (e.g. hershey).
+// offset flags are:
+//   'C' - center
+//   'L' - left
+//   'R' - right
+//   'T' - top
+//   'B' - bottom
+//
+//
+// Returns array of paths
+//
+// point : [x,y]
+// path  : [ point0, point1 ... ] = [[x0,y0],[x1,y1]...]
+// path array: [ path0, path1, ... ]
+//           = [ [point0_0, point0_1, ...], [point1_0, point1_1, ...], ...]
+//           = [ [[x0_0,y0_0],[x0_1,y0_1], ... ], [[x1_0,y1_0],[x1_1,y1_1], ... ], ... ]
+//
+function drawTextFont(text, font,
+                      x, y,
+                      sizex, sizey,
+                      angle_deg,
+                      offset_flag_h, offset_flag_v,
+                      flip_text_flag) {
+
+  sizex         = (( typeof sizex !== 'undefined' ) ? parseFloat(sizex) : 1 );
+  sizey         = (( typeof sizey !== 'undefined' ) ? parseFloat(sizey) : 1 );
+  angle_deg     = (( typeof angle_deg !== 'undefined' ) ? parseFloat(angle_deg) : 0 );
+  offset_flag_h = (( typeof offset_flag_h !== 'undefined' ) ? offset_flag_h : 'C' );
+  offset_flag_v = (( typeof offset_flag_v !== 'undefined' ) ? offset_flag_v : 'C' );
+  flip_text_flag= (( typeof flip_text_flag !== 'undefined' ) ? flip_text_flag : false );
+
+  let ret_lines = [];
+
+  var angle_radian = Math.PI * angle_deg / 180.0;
+  var scale = parseFloat(font.scale_factor);
+  var w = _font_text_width(text, font, sizex);
+  var sx = w / 2;
+
+  var h = sizey;
+  var sy = h / 2;
+
+  if      (offset_flag_h == 'L') { sx = 0; }
+  else if (offset_flag_h == 'C') { sx = w/2; }
+  else if (offset_flag_h == 'R') { sx = w; }
+
+  if      (offset_flag_v == 'T') { sy = h; }
+  else if (offset_flag_v == 'C') { sy = h/2; }
+  else if (offset_flag_v == 'B') { sy = 0; }
+
+  let M = sly.Matrix.create([[1,0,0],[0,1,0],[0,0,1]]);
+  if (flip_text_flag) {
+    M = M.x(sly.Matrix.create([[-1,0,0],[0,1,0],[0,0,1]]));
+  }
+  // rotate
+  //
+  M = M.x(sly.Matrix.Rotation( angle_radian, sly.Vector.create([0,0,1])));
+  // translate
+  //
+  M = M.x(sly.Matrix.create([[1,0,x],[0,1,y],[0,0,1]]));
+
+  var ch_x = 0;
+
+  var A = scale * sizex;
+  var B = scale * sizey;
+
+  let lines = [];
+
+  for (let i=0; i<text.length; i++) {
+    let ch_ord = text.charCodeAt(i);
+
+    let f_ele = font[ch_ord];
+    if (typeof f_ele === "undefined") { continue; }
+
+    let xsta = scale * parseFloat(f_ele.xsta) * sizex;
+    let xsto = scale * parseFloat(f_ele.xsto) * sizex;
+
+    let dx =  (xsto - xsta) ;
+
+    for (let a_ind in f_ele.art) { 
+
+      let pnt_path = [];
+      for (let k in f_ele.art[a_ind]) {
+        let tx =  A * parseFloat(f_ele.art[a_ind][k].x)  - sx;
+
+        // if y is descending, the following line should be kept in
+        //
+        //let ty = -B * parseFloat(f_ele.art[a_ind][k].y)  + sy;
+
+        let ty = B * parseFloat(f_ele.art[a_ind][k].y)  - sy;
+
+        if ( parseInt(k) == 0 ) {
+          pnt_path.push(sly.Vector.create([ch_x+tx, ty,1]));
+        }
+        pnt_path.push(sly.Vector.create([ch_x+tx, ty, 1]));
+      }
+
+      let pnt_path_t = [];
+      for (let k=0; k<pnt_path.length; k++) {
+        let z = M.x(pnt_path[k]);
+
+        // Sylvester starts at 1 "consistent with math notation",
+        // undone here for sanity
+        //
+        pnt_path_t.push( [z.e(1), z.e(2)] );
+      }
+
+      lines.push(pnt_path_t);
+    }
+
+    ch_x += dx;
+  }
+
+  return lines;
+}
+
+
 
 function print_tri_gp(tri, pfx) {
   pfx = ((typeof pfx === "undefined") ? "" : pfx);
@@ -342,87 +593,6 @@ function Align2DTriangles(tri0, e0_idx0, e0_idx1, tri1, e1_idx0, e1_idx1) {
 
 }
 
-function PepacatModel() {
-
-  this.tri_mesh_3d = [];
-  this.tri_geom_3d = [];
-
-  // Array of traignles from original model
-  // Immutable after first population.
-  //
-  this.tri3d = [];
-
-  // array of normals for each of the triangles.
-  // Immutable after first population.
-  //
-  this.trn3d = [];
-
-
-  // 2D flattened triangles from the 3d list.
-  // Meant to be pretty much immutable after initial flattening.
-  //
-  this.tri2d = [];
-
-
-  // Map edges to the triangles connected to them
-  //
-  this.edge3d_adjmap = {};
-
-  // key is src->dst tri index.  Element is src_edge, dst_edge
-  //
-  this.tri_adjmap = {};
-
-  // Adornment information for each edge.
-  // This holds the 'meta' information, which edge has which
-  // adornment, information about each adornment, etc.
-  //
-  this.edge2d_adorn = {};
-
-  // 2d layers for unfolding and rendering
-  //
-  this.layer2d = {
-    "skel" : {}, // base skeleton
-    "cut" : {},  // out boundary of cut item
-    "score" : {} // scoring
-  };
-
-  this.info = {
-    "tab" : "trapezoid",
-    "tab_height": 0.125,
-    "tab_angle" : Math.PI/6.0,
-    "tab_x" : 0,
-
-    "print_sheet" : "A3",
-
-    //"premul" : 100000,
-    "premul" : 10000000,
-    "scoring": "solid", // "dashed"
-    "numbering": "tab" // label tabs
-  };
-
-  this.info.tab_x = this.info.tab_height / Math.tan(this.info.tab_angle);
-
-  // key is the group name.
-  // trigroup2d[<name>]:
-  //   dirty : needs updating
-  //   anchor_tri_idx : index of triangle used to anchor realization
-  //   G :
-  //   bbox: bounding box of ralized triangle group
-  //   tri_idx_map[<tri_index>]:
-  //       nei_tri_idx_map : map of connected neightbors.  Elements are { src_edge : [ src0, src1 ], dst_edge : [ dst0, dst1 ] },
-  //                         where src is from tri_index, and dst is from the neighbor tri index
-  //       tri2d : realization of triangle (2d) (post tranfsormation, actual realization)
-  //       T : transform of triangle (2d)
-  //       adorn : array of tab adornments ("none", "trapezoid") for each edge (idx,idx+1).
-  //       visited : internal use when updating group
-  //
-  //
-  this.trigroup2d = {};
-
-  this.tri_idx_trigroup_lookback = {};
-
-}
-
 PepacatModel.prototype.ExportJSON = function(a, b) {
   var json = {};
 
@@ -438,7 +608,7 @@ PepacatModel.prototype.ExportJSON = function(a, b) {
   json["edge3d_adjmap"] = this.edge3d_adjmap;
   json["tri_idx_trigroup_lookback"] = this.tri_idx_trigroup_lookback;
 
-  return JSON.stringify(json);
+  return JSON.stringify(json, a, b);
 }
 
 PepacatModel.prototype.allclose = function(a, b) {
@@ -455,8 +625,8 @@ PepacatModel.prototype.allclose = function(a, b) {
   return true;
 }
 
-PepacatModel.prototype.LoadSTLFile = function(fn) {
-  var facets = stl.toObject(fs.readFileSync(fn));
+PepacatModel.prototype.LoadSTL = function(dat) {
+  var facets = stl.toObject(dat);
 
   var norms = [];
   var verts = [];
@@ -466,14 +636,13 @@ PepacatModel.prototype.LoadSTLFile = function(fn) {
   for (var ii=0, il=data.length; ii<il; ii++) {
     norms.push(data[ii].normal);
     verts.push(data[ii].verts);
-
-    //console.log(data[ii].normal);
-    //console.log(data[ii].verts);
   }
 
-  //console.log(facets);
-
   return this.LoadModel(verts, norms);
+}
+
+PepacatModel.prototype.LoadSTLFile = function(fn) {
+  return this.LoadSTL(fs.readFileSync(fn));
 }
 
 PepacatModel.prototype.LoadModel = function(_verts, _norms) {
@@ -586,6 +755,7 @@ PepacatModel.prototype.LoadModel = function(_verts, _norms) {
       policy: "alternate",
       idx: 0,
       tri_index: [idx0, idx1],
+      anchor_vertex_edge_index: [info[0].edge[0], info[1].edge[0]],
       edge: [info[0].edge[0], info[1].edge[1]]
     };
 
@@ -1331,7 +1501,7 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, boundary_type, debug) 
 
 
   // Collect population for each representative in vert_node.
-  // The key is the 'representative' vertex and the values is an
+  // The map key is the 'representative' vertex and the values is an
   // object with a key for each of the triangle verticies that
   // fall on the same representative.
   //
@@ -1350,6 +1520,19 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, boundary_type, debug) 
   }
   }
 
+  // border_edge holds information about the edges on the border.
+  // We will use this later to traverse the boundary in order to
+  // give the final realized path.
+  // The data structure is:
+  //    src_idx : canonicla triangle index of source point
+  //    src_v   : vertex in source canonical triangle of point
+  //    dst_idx : canonical triangle index of destination point
+  //    dst_v   : vertex in destination canonical triangle of point
+  //    orig_idx: non-canonical triangle source triangle
+  //    orig_v  : non-canonical triangle vertex source point
+  //    border  : flag to hold whether it's on the border
+  //    visited : flag to hold whether it's been traversed or not
+  //
   var border_edge = {};
 
   var key0, key1, key_v0, key_v1, edge_key;
@@ -1516,11 +1699,19 @@ PepacatModel.prototype._skel_boundary = function(tri_idx, boundary_type, debug) 
       if (!first) {
         var adorn_type = this._get_adorn(orig_idx, orig_v);
 
+        if ((orig_idx == 205) && (orig_v == 1)) { console.log("# >>>> got", adorn_type); }
+
         //console.log("#", adorn_type);
 
         //var adorn_type = group.tri_idx_map[orig_idx].adorn[orig_v];
         if (adorn_type == "trapezoid") {
+
+          if ((orig_idx == 205) && (orig_v == 1)) { console.log("# >>>> bef", visited_count, border.length, adorn_type, prev_x, prev_y, x, y); }
+
           this._adorn_2d(border, adorn_type, prev_x, prev_y, x, y, { angle: Math.PI/3 });
+
+          if ((orig_idx == 205) && (orig_v == 1)) { console.log("# >>>> aft", visited_count, border.length, adorn_type, prev_x, prev_y, x, y); }
+
         }
         else if (adorn_type == "none") {
           //border.push( [x,y, { idx: src_idx, v: src_v }] );
@@ -1569,7 +1760,33 @@ PepacatModel.prototype._get_adorn = function(tri_idx, tri_v) {
   if (!(tri_idx in this.tri_adorn)) { return "none" };
   if (!(tri_v in this.tri_adorn[tri_idx])) { return "none" };
   var a = this.tri_adorn[tri_idx][tri_v];
-  if (a.edge[a.idx] == tri_v) { return a.shape; }
+
+  /*
+  if ( ((tri_idx == 71) && (tri_v==1)) ||
+       ((tri_idx == 267) && (tri_v==1)) ) {
+    console.log(tri_idx, tri_v, JSON.stringify(a));
+  }
+  */
+
+  if ( ((tri_idx == 205) && (tri_v==1)) ||
+       ((tri_idx == 257) && (tri_v==2)) ) {
+    console.log("#", tri_idx, tri_v, a.tri_index[a.idx], JSON.stringify(a));
+  }
+
+
+  if (parseInt(a.tri_index[a.idx]) == parseInt(tri_idx)) {
+
+    if ( ((tri_idx == 205) && (tri_v==1)) ||
+         ((tri_idx == 257) && (tri_v==2)) ) {
+      console.log("#>>>", a.shape);
+    }
+
+
+    return a.shape;
+  }
+
+  //if (a.edge[a.idx] == tri_v) { return a.shape; }
+  //if (a.edge[a.idx] == tri_v) { return a.shape; }
   return "none";
 }
 
@@ -2837,12 +3054,74 @@ function test12() {
 
 }
 
+function test13() {
+  var gg = new PepacatModel();
+  gg.LoadSTLFile(MODEL_FN);
+  gg.HeuristicUnfold();
+
+
+  var boundary = gg._skel_boundary(26, "tab");
+
+  for (var idx=0; idx<boundary.length; idx++) {
+    console.log(boundary[idx][0], boundary[idx][1]);
+  }
+
+  var tg = gg.TriGroupName(205);
+  gg.PrintTriGroup(tg);
+
+}
+
+function test_hershey() {
+  console.log("# ok");
+  let x = drawTextFont("ok", hershey_font, 0, 0, 10, 10, 35);
+
+  for (let i=0; i<x.length; i++) {
+    for (let j=0; j<x[i].length; j++) {
+      console.log(x[i][j][0], x[i][j][1]);
+    }
+    console.log("");
+  }
+}
+
+
+
+function test14() {
+  var gg = new PepacatModel();
+
+  gg.LoadSTLFile("../models/calib.stl");
+
+  let jdat = gg.ExportJSON(undefined, 2);
+  console.log( jdat );
+
+  let ok  = gg.Consistency();
+  console.log(">>>", ok);
+
+  return;
+
+
+  gg.HeuristicUnfold();
+
+
+  var boundary = gg._skel_boundary(26, "tab");
+
+  for (var idx=0; idx<boundary.length; idx++) {
+    console.log(boundary[idx][0], boundary[idx][1]);
+  }
+
+  var tg = gg.TriGroupName(205);
+  gg.PrintTriGroup(tg);
+
+}
+
 if (typeof module !== 'undefined') {
-  console.log("#TESTING", MODEL_FN);
   //test9();
   //test7();
   //test11();
-  test12();
+  //test12();
+  //console.log("#TESTING", MODEL_FN);
+  //test13();
+  console.log("#testing ../models/calib.stl");
+  test14();
 }
 
 //test6();
